@@ -24,6 +24,7 @@ Single-context repo: one `CONTEXT.md` + `docs/adr/` at the root. See `docs/agent
 - Sound/alarm design aesthetic: synthesized, ambient "Blade Runner 2049 / Dune / pocket-synth" voices rather than a single generic chime (see ADR-0005).
 - Drives work through the Matt Pocock skill flow (`/grill-with-docs`, `/handoff`, `/to-prd`, `/to-issues`, `/implement`).
 - When changing/toggling a sound setting, play a short audible preview (~5 beats/ticks) and ALWAYS stop any currently-playing audio before starting the next.
+- Ticking should not run continuously during focus; the desired feel is a subtle transition cue — ticks fading in over the last ~30s of a cycle plus a distinct start sound (woosh/crisp click) — rather than ticks the whole cycle.
 
 ## Learned Workspace Facts
 
@@ -37,3 +38,5 @@ Single-context repo: one `CONTEXT.md` + `docs/adr/` at the root. See `docs/agent
 - "chip" is shorthand for splitting work into small, independently-shippable tasks/chunks.
 - Product name is "Pomoisland" (double "o"); the git repo/remote stays `pomisland` (single "o") — the rename is product-name-only and in-repo.
 - Multi-option settings use a three-button segmented control matching the Theme/color-picker pattern (e.g. Ticking sound Off/Soft/Crisp), not a binary toggle.
+- New work goes on a `cursor/`-prefixed branch; never commit or push directly to the default branch (`main`).
+- Linear is now used to track outstanding work items/tickets (alongside the local `.scratch/` markdown convention).
