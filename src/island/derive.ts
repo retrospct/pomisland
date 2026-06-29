@@ -53,6 +53,7 @@ export function deriveIsland(
     mode,
     status,
     remaining,
+    theme: resolvedTheme,
   })
 
   const frac = fracOf(total, remaining)
