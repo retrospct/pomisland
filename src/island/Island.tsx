@@ -84,8 +84,20 @@ export function Island(props: IslandProps) {
           {/* Invisible spacer keeps the Electron window tall enough for the floating menu */}
           <div style={{ height: MENU_ALLOWANCE, pointerEvents: 'none', visibility: 'hidden' }} />
           {/* Absolutely-positioned menu — floats over task list and any other content */}
-          <div style={{ position: 'absolute', right: 0, top: `calc(100% - ${MENU_ALLOWANCE}px + 4px)`, zIndex: 100 }} onClick={stop}>
-            <MenuDropdown onTasks={props.onOpenTasks} onSettings={props.onSettings} onQuit={props.onQuit} />
+          <div
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: `calc(100% - ${MENU_ALLOWANCE}px + 4px)`,
+              zIndex: 100,
+            }}
+            onClick={stop}
+          >
+            <MenuDropdown
+              onTasks={props.onOpenTasks}
+              onSettings={props.onSettings}
+              onQuit={props.onQuit}
+            />
           </div>
         </>
       )}
@@ -93,14 +105,8 @@ export function Island(props: IslandProps) {
   )
 }
 
-
 // MO-20: completion fx tracks enter/exit phase to animate in and out.
-function Collapsed({
-  view,
-  notch,
-  ripple,
-  onToggleExpand,
-}: IslandProps) {
+function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
   const pillRadius: CSSProperties['borderRadius'] = notch ? '0 0 20px 20px' : 999
 
   const [fxPhase, setFxPhase] = useState<'enter' | 'exit' | 'none'>('none')
@@ -149,12 +155,7 @@ function Collapsed({
           exiting={fxPhase === 'exit'}
         />
       )}
-      <div
-        className="island-pill"
-        data-island="1"
-        style={pill}
-        onClick={onToggleExpand}
-      >
+      <div className="island-pill" data-island="1" style={pill} onClick={onToggleExpand}>
         {view.showRing && (
           <Ring
             size={30}
@@ -394,7 +395,7 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         >
           {view.statusLabel}
         </span>
-        <SessionDots dots={view.dots} gap={6} completedToday={view.completedToday} />
+        <SessionDots dots={view.dots} gap={6} completedToday={view.completedToday} dailyGoal={view.dailyGoal} />
       </div>
 
       {/* Task text — clicking opens the task list (non-drag hotspot per MO-6) */}
@@ -402,9 +403,13 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         role="button"
         tabIndex={0}
         aria-label="Open task list"
-        onClick={(e) => { stop(e); props.onOpenTasks(e) }}
+        onClick={(e) => {
+          stop(e)
+          props.onOpenTasks(e)
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') props.onOpenTasks(e as unknown as React.MouseEvent)
+          if (e.key === 'Enter' || e.key === ' ')
+            props.onOpenTasks(e as unknown as React.MouseEvent)
         }}
         style={{
           fontSize: 13.5,
@@ -463,7 +468,10 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
         <button
           className="island-icon-btn"
-          onClick={(e) => { stop(e); onReset() }}
+          onClick={(e) => {
+            stop(e)
+            onReset()
+          }}
           aria-label="Reset"
           style={iconBtn}
         >
@@ -471,7 +479,10 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         </button>
         <button
           className="island-primary-btn"
-          onClick={(e) => { stop(e); onPlayPause() }}
+          onClick={(e) => {
+            stop(e)
+            onPlayPause()
+          }}
           aria-label="Play / pause"
           style={{
             width: 54,
@@ -490,7 +501,10 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         </button>
         <button
           className="island-icon-btn"
-          onClick={(e) => { stop(e); onSkip() }}
+          onClick={(e) => {
+            stop(e)
+            onSkip()
+          }}
           aria-label="Skip"
           style={iconBtn}
         >
@@ -510,13 +524,15 @@ function Expanded(props: IslandProps) {
 /** Expanded panel with the task list appended below — shadow on wrapper, not inner body. */
 function ExpandedWithTasks(props: IslandProps) {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      borderRadius: props.notch ? '0 0 26px 26px' : 26,
-      boxShadow: 'none',
-      overflow: 'hidden',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: props.notch ? '0 0 26px 26px' : 26,
+        boxShadow: 'none',
+        overflow: 'hidden',
+      }}
+    >
       <ExpandedBody {...props} bottomRadius={0} />
       {props.tasks && (
         <TaskList tasks={props.tasks} accent={props.view.accent} onClose={props.onCloseTasks} />

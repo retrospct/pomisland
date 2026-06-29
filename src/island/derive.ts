@@ -25,6 +25,8 @@ export interface IslandView {
   showTimeText: boolean
   /** Focus sessions completed today — drives the SessionDots hover reveal (MO-7). */
   completedToday: number
+  /** Daily goal — shown alongside completedToday as "X/Y" on hover. */
+  dailyGoal: number
 }
 
 export interface DotStyle {
@@ -123,5 +125,6 @@ export function deriveIsland(
     showRing: prefs.layout !== 'minimal',
     showTimeText: prefs.layout !== 'compact',
     completedToday,
+    dailyGoal: prefs.dailyGoal,
   }
 }
