@@ -84,15 +84,28 @@ export function activeTaskTitle(): string {
 /**
  * Called when a focus block completes — bumps the active task's pomodoro count
  * and the daily total, resetting the counter when the date has rolled over.
+ * Auto-completes the task when all sessions are done, then advances to the
+ * next incomplete task.
  */
 export function recordFocusComplete(): void {
   const s = getTasks()
   const today = todayString()
   const completedToday = s.completedDate === today ? s.completedToday + 1 : 1
-  const tasks = s.tasks.map((t) =>
-    t.id === s.activeTaskId ? { ...t, completedPomodoros: t.completedPomodoros + 1 } : t,
-  )
-  commit({ ...s, tasks, completedToday, completedDate: today })
+
+  let justAutoCompleted = false
+  const tasks = s.tasks.map((t) => {
+    if (t.id !== s.activeTaskId) return t
+    const completedPomodoros = t.completedPomodoros + 1
+    const shouldAutoDone = !t.done && completedPomodoros >= t.estimatePomodoros
+    if (shouldAutoDone) justAutoCompleted = true
+    return { ...t, completedPomodoros, done: t.done || shouldAutoDone }
+  })
+
+  const activeTaskId = justAutoCompleted
+    ? (tasks.find((t) => !t.done && t.id !== s.activeTaskId)?.id ?? null)
+    : s.activeTaskId
+
+  commit({ ...s, tasks, activeTaskId, completedToday, completedDate: today })
 }
 
 export function applyMutation(m: TaskMutation): void {
@@ -113,7 +126,21 @@ export function applyMutation(m: TaskMutation): void {
       break
     }
     case 'update': {
-      const tasks = s.tasks.map((t) => (t.id === m.id ? { ...t, ...m.patch } : t))
+      const tasks = s.tasks.map((t) => {
+        if (t.id !== m.id) return t
+        const patched = { ...t, ...m.patch }
+        // Estimate-change side-effects: adding sessions to a done task unchecks it;
+        // reducing estimate at or below completed sessions auto-completes it.
+        if (m.patch.estimatePomodoros !== undefined) {
+          if (patched.done && patched.estimatePomodoros > patched.completedPomodoros) {
+            return { ...patched, done: false }
+          }
+          if (!patched.done && patched.completedPomodoros >= patched.estimatePomodoros && patched.completedPomodoros > 0) {
+            return { ...patched, done: true }
+          }
+        }
+        return patched
+      })
       commit({ ...s, tasks })
       break
     }

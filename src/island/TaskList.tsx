@@ -3,7 +3,6 @@
 // Drag-reorder is a separate fast-follow issue.
 
 import { useRef, useState } from 'react'
-import { hexToRgba } from '@shared/accent'
 import type { Task, TasksState } from '@shared/types'
 
 const SANS = "'Inter', sans-serif"
@@ -426,7 +425,6 @@ function Pips({
   accent: string
 }) {
   const total = Math.min(Math.max(estimate, completed), 8)
-  const inactive = hexToRgba(accent, 0.28)
   return (
     <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
       {Array.from({ length: total }, (_, i) => (
@@ -436,7 +434,7 @@ function Pips({
             width: 5,
             height: 5,
             borderRadius: '50%',
-            background: i < completed ? accent : inactive,
+            background: i < completed ? accent : 'var(--il-icon)',
             flexShrink: 0,
           }}
         />
