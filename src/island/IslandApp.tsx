@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { deriveIsland } from './derive'
 import { Island, type Present } from './Island'
 import { islandPaletteVars, resolveTheme } from './palette'
+import { useDrag } from './useDrag'
 
 export function IslandApp() {
   const [state, setState] = useState<TimerState | null>(null)
@@ -20,10 +21,18 @@ export function IslandApp() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   const measureRef = useRef<HTMLDivElement>(null)
-  const justDragged = useRef(false)
-  const moved = useRef(false)
   const prevStatus = useRef<string | null>(null)
   const lastTickSecond = useRef<number | null>(null)
+  const retractTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Ref so the blur handler never has a stale dragging value.
+  const draggingRef = useRef(false)
+
+  const { onMouseDown, justDragged } = useDrag()
+
+  // Keep draggingRef in sync with placement state.
+  useEffect(() => {
+    draggingRef.current = placement.dragging
+  }, [placement.dragging])
 
   // Forces a re-render when the OS appearance changes, so `resolveTheme('system')` re-reads
   // the media query and the palette vars update live.
@@ -106,53 +115,58 @@ export function IslandApp() {
     }
   }, [])
 
-  // --- Drag (collapsed only) ---
-  const onMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (expanded) return
-      if ((e.target as HTMLElement)?.closest('button')) return
-      moved.current = false
-      window.api.island.dragStart(e.screenX, e.screenY)
-      setPeek(false)
+  // --- Retract helpers (MO-10) ---
+  const clearRetract = useCallback(() => {
+    if (retractTimer.current !== null) {
+      clearTimeout(retractTimer.current)
+      retractTimer.current = null
+    }
+  }, [])
 
-      const onMove = (ev: MouseEvent) => {
-        moved.current = true
-        window.api.island.dragMove(ev.screenX, ev.screenY)
-      }
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-        window.api.island.dragEnd()
-        if (moved.current) {
-          justDragged.current = true
-          setTimeout(() => (justDragged.current = false), 60)
-        }
-      }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-    },
-    [expanded],
-  )
+  /** Immediately collapse to the minimised notch state. */
+  const retract = useCallback(() => {
+    clearRetract()
+    setExpanded(false)
+    setPeek(false)
+    setMenuOpen(false)
+  }, [clearRetract])
+
+  // Ensure pending timers are cleared on unmount.
+  useEffect(() => clearRetract, [clearRetract])
+
+  // --- Click-outside / window-blur retract ---
+  // When the island window loses OS focus (user clicked elsewhere), collapse it.
+  // Guard against firing during a drag — the mouse leaving the window doesn't
+  // lose focus, but just in case.
+  useEffect(() => {
+    const onBlur = () => {
+      if (draggingRef.current) return
+      retract()
+    }
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [retract])
 
   // The wrapper is always rendered so the ResizeObserver (attached on mount) can
   // measure the island once state/prefs arrive and drive the window auto-resize.
   const resolvedTheme = prefs ? resolveTheme(prefs.theme) : 'dark'
-  const view = state && prefs ? deriveIsland(state, prefs, resolvedTheme, tasks?.completedToday ?? 0) : null
+  const view =
+    state && prefs ? deriveIsland(state, prefs, resolvedTheme, tasks?.completedToday ?? 0) : null
 
   // Determine presentation
   let present: Present = 'collapsed'
   if (tasksOpen && expanded) present = 'tasks'
   else if (expanded) present = 'expanded'
-  else if (peek && placement.snapped && !placement.dragging) present = 'peek'
+  else if (peek && !placement.dragging) present = 'peek'
 
   const toggleExpand = () => {
     if (justDragged.current) return
-    setMenuOpen(false)
     if (expanded) {
-      // Collapsing: also close tasks panel
       setTasksOpen(false)
-      setExpanded(false)
+      retract()
     } else {
+      clearRetract()
+      setMenuOpen(false)
       setExpanded(true)
     }
   }
@@ -167,7 +181,23 @@ export function IslandApp() {
   const closeTasks = () => setTasksOpen(false)
 
   return (
-    <div ref={measureRef} style={{ display: 'inline-block', ...(prefs ? islandPaletteVars(prefs.theme) : {}) }}>
+    <div
+      ref={measureRef}
+      style={{ display: 'inline-block', ...(prefs ? islandPaletteVars(prefs.theme) : {}) }}
+      onMouseDown={onMouseDown}
+      onMouseEnter={() => {
+        clearRetract()
+        if (!expanded && !placement.dragging) setPeek(true)
+      }}
+      onMouseLeave={() => {
+        const delay = expanded ? (prefs?.expandRetractMs ?? 1000) : (prefs?.hoverRetractMs ?? 200)
+        retractTimer.current = setTimeout(() => {
+          retractTimer.current = null
+          setExpanded(false)
+          setPeek(false)
+        }, delay)
+      }}
+    >
       {view && state && prefs && (
         <Island
           present={present}
@@ -180,11 +210,6 @@ export function IslandApp() {
           onPlayPause={() => window.api.timer.action({ type: 'playPause' })}
           onReset={() => window.api.timer.action({ type: 'reset' })}
           onSkip={() => window.api.timer.action({ type: 'skip' })}
-          onMouseDown={onMouseDown}
-          onMouseEnter={() => {
-            if (!expanded && !placement.dragging && placement.snapped) setPeek(true)
-          }}
-          onMouseLeave={() => setPeek(false)}
           menuOpen={menuOpen}
           onToggleMenu={(e) => {
             e.stopPropagation()

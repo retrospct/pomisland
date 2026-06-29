@@ -9,9 +9,11 @@ interface SessionDotsProps {
   gap?: number
   /** Focus sessions completed today. When provided, hovering reveals the count. */
   completedToday?: number
+  /** Daily goal. When provided alongside completedToday, shows "X/Y" on hover. */
+  dailyGoal?: number
 }
 
-export function SessionDots({ dots, gap = 5, completedToday }: SessionDotsProps) {
+export function SessionDots({ dots, gap = 5, completedToday, dailyGoal }: SessionDotsProps) {
   const [hovered, setHovered] = useState(false)
 
   const handlers = {
@@ -21,6 +23,8 @@ export function SessionDots({ dots, gap = 5, completedToday }: SessionDotsProps)
 
   if (hovered && completedToday !== undefined) {
     const isMilestone = completedToday === 10 || completedToday === 20
+    const label =
+      dailyGoal !== undefined ? `${completedToday}/${dailyGoal}` : String(completedToday)
     return (
       <div
         style={{
@@ -40,23 +44,20 @@ export function SessionDots({ dots, gap = 5, completedToday }: SessionDotsProps)
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 11,
             fontWeight: 600,
-            color: '#F2F1EC',
+            color: 'var(--il-text)',
             lineHeight: 1,
             position: 'relative',
             zIndex: 1,
           }}
         >
-          {completedToday}
+          {label}
         </span>
       </div>
     )
   }
 
   return (
-    <div
-      style={{ display: 'flex', alignItems: 'center', gap, flex: '0 0 auto' }}
-      {...handlers}
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap, flex: '0 0 auto' }} {...handlers}>
       {dots.map((d, i) => (
         <span
           key={i}

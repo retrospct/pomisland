@@ -18,6 +18,25 @@ import type {
 } from '@shared/types'
 import type { CSSProperties, ReactNode } from 'react'
 
+/** Circular arrow — reset to default. */
+function ResetIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 13 13"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.6"
+    >
+      <path d="M1.5 6.5a5 5 0 1 0 1-2.9" />
+      <path d="M1.5 1.5v3h3" />
+    </svg>
+  )
+}
+
 const MONO = "'IBM Plex Mono', monospace"
 const SANS = "'Inter', sans-serif"
 
@@ -252,6 +271,74 @@ function SelectCard({
   )
 }
 
+function RetractControl({
+  label,
+  desc,
+  value,
+  defaultValue,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  desc: string
+  value: number
+  defaultValue: number
+  min: number
+  max: number
+  onChange: (v: number) => void
+}) {
+  const fmt = (ms: number) => (ms / 1000).toFixed(1) + 's'
+  const isDefault = value === defaultValue
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+    >
+      <div>
+        <div style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--sp-body)' }}>{label}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, color: 'var(--sp-faint)', marginTop: 2 }}>
+          {desc}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+        <button
+          title={`Reset to default (${fmt(defaultValue)})`}
+          onClick={() => onChange(defaultValue)}
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 7,
+            border: '1px solid var(--sp-border)',
+            background: 'var(--sp-surface)',
+            color: 'var(--sp-muted)',
+            cursor: isDefault ? 'default' : 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 0,
+            opacity: isDefault ? 0.35 : 1,
+            transition: 'opacity .15s',
+          }}
+        >
+          <ResetIcon />
+        </button>
+        <StepButton onClick={() => onChange(Math.max(min, value - 100))}>&minus;</StepButton>
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 13,
+            color: 'var(--sp-teal)',
+            minWidth: 38,
+            textAlign: 'center',
+          }}
+        >
+          {fmt(value)}
+        </span>
+        <StepButton onClick={() => onChange(Math.min(max, value + 100))}>+</StepButton>
+      </div>
+    </div>
+  )
+}
+
 // ---- General tab ----
 
 const PRESETS: [Prefs['preset'], string][] = [
@@ -313,13 +400,15 @@ export function GeneralTab({ prefs, set }: TabProps) {
           <div
             style={{
               display: 'flex',
+              gap: 3,
+              background: 'var(--sp-field)',
               border: '1px solid var(--sp-border)',
               borderRadius: 11,
-              overflow: 'hidden',
+              padding: 3,
               marginBottom: 12,
             }}
           >
-            {PRESETS.map(([k, label], i) => {
+            {PRESETS.map(([k, label]) => {
               const on = prefs.preset === k
               return (
                 <button
@@ -327,16 +416,15 @@ export function GeneralTab({ prefs, set }: TabProps) {
                   onClick={() => onPreset(k)}
                   style={{
                     flex: 1,
-                    textAlign: 'center',
+                    height: 30,
                     border: 'none',
-                    borderLeft: i ? '1px solid var(--sp-border)' : 'none',
+                    borderRadius: 8,
                     cursor: 'pointer',
-                    padding: '9px 8px',
                     fontFamily: MONO,
                     fontSize: 11.5,
                     letterSpacing: '0.03em',
                     background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
-                    color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-muted)',
+                    color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)',
                     transition: 'all .15s',
                   }}
                 >
@@ -814,6 +902,30 @@ export function PreferencesTab({ prefs, set }: TabProps) {
             ))}
           </div>
         </div>
+
+        <div>
+          <SectionLabel>Auto-retract</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <RetractControl
+              label="On hover"
+              desc="Collapse delay when cursor leaves the peek view"
+              value={prefs.hoverRetractMs}
+              defaultValue={200}
+              min={100}
+              max={2000}
+              onChange={(v) => set({ hoverRetractMs: v })}
+            />
+            <RetractControl
+              label="When expanded"
+              desc="Collapse delay when cursor leaves the expanded view"
+              value={prefs.expandRetractMs}
+              defaultValue={800}
+              min={300}
+              max={5000}
+              onChange={(v) => set({ expandRetractMs: v })}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Right: alarm & sound / done animation */}
@@ -1072,7 +1184,9 @@ function RipplePreview({ variant, accent }: { variant: Ripple; accent: AccentKey
           >
             FOCUS DONE
           </span>
-          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, color: 'var(--sp-text)' }}>
+          <span
+            style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, color: 'var(--sp-text)' }}
+          >
             00:00
           </span>
         </div>

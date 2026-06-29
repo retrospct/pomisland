@@ -94,6 +94,10 @@ export interface Prefs {
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----
   alwaysTop: boolean
   magnetic: boolean
+  /** Delay (ms) before collapsing from peek after cursor leaves. */
+  hoverRetractMs: number
+  /** Delay (ms) before collapsing from expanded after cursor leaves. */
+  expandRetractMs: number
 }
 
 export type TimerActionType = 'playPause' | 'reset' | 'skip' | 'switchMode' | 'quit'
@@ -104,6 +108,10 @@ export interface SetTaskAction {
 }
 
 export type TimerAction = { type: TimerActionType } | SetTaskAction
+
+// ---------------------------------------------------------------------------
+// Tasks (MO-6) — persisted per-task state owned by the main process.
+// ---------------------------------------------------------------------------
 
 /** Drag / snap status of the island window, broadcast during a drag. */
 export interface Placement {
@@ -141,7 +149,11 @@ export interface TasksState {
 
 export type TaskMutation =
   | { type: 'add'; title: string }
-  | { type: 'update'; id: string; patch: Partial<Pick<Task, 'title' | 'estimatePomodoros' | 'done'>> }
+  | {
+      type: 'update'
+      id: string
+      patch: Partial<Pick<Task, 'title' | 'estimatePomodoros' | 'done'>>
+    }
   | { type: 'delete'; id: string }
   | { type: 'setActive'; id: string | null }
 

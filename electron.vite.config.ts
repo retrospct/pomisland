@@ -35,6 +35,7 @@ export default defineConfig({
         input: {
           island: resolve(__dirname, 'index.html'),
           settings: resolve(__dirname, 'settings.html'),
+          'snap-overlay': resolve(__dirname, 'snap-overlay.html'),
         },
       },
     },

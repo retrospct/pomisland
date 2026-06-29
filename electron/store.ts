@@ -36,6 +36,8 @@ export const DEFAULT_PREFS: Prefs = {
   // Window behavior (not surfaced in SettingsPanel)
   alwaysTop: true,
   magnetic: true,
+  hoverRetractMs: 200,
+  expandRetractMs: 800,
 }
 
 type Listener = (p: Prefs) => void
