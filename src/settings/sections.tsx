@@ -252,23 +252,24 @@ function SelectCard({
   )
 }
 
-function RetractSlider({
+function RetractControl({
   label,
   desc,
   value,
+  presets,
   min,
   max,
-  step,
   onChange,
 }: {
   label: string
   desc: string
   value: number
+  presets: [number, string][]
   min: number
   max: number
-  step: number
   onChange: (v: number) => void
 }) {
+  const fmt = (ms: number) => (ms / 1000).toFixed(1) + 's'
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
       <div>
@@ -277,28 +278,42 @@ function RetractSlider({
           {desc}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: '0 0 auto' }}>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(parseInt(e.target.value, 10))}
-          className="sp-range"
-          style={{ width: 90 }}
-        />
-        <span
-          style={{
-            fontFamily: MONO,
-            fontSize: 12,
-            color: 'var(--sp-teal)',
-            minWidth: 42,
-            textAlign: 'right',
-          }}
-        >
-          {value}ms
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+        {presets.map(([ms, name]) => (
+          <button
+            key={ms}
+            onClick={() => onChange(ms)}
+            style={{
+              border: `1px solid ${value === ms ? 'var(--sp-teal)' : 'var(--sp-border)'}`,
+              background: value === ms ? 'var(--sp-tint)' : 'transparent',
+              color: value === ms ? 'var(--sp-teal)' : 'var(--sp-muted)',
+              cursor: 'pointer',
+              padding: '5px 11px',
+              borderRadius: 999,
+              fontFamily: SANS,
+              fontSize: 12,
+              fontWeight: value === ms ? 600 : 500,
+              transition: 'all .15s',
+            }}
+          >
+            {name}
+          </button>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <StepButton onClick={() => onChange(Math.max(min, value - 100))}>&minus;</StepButton>
+          <span
+            style={{
+              fontFamily: MONO,
+              fontSize: 13,
+              color: 'var(--sp-teal)',
+              minWidth: 38,
+              textAlign: 'center',
+            }}
+          >
+            {fmt(value)}
+          </span>
+          <StepButton onClick={() => onChange(Math.min(max, value + 100))}>+</StepButton>
+        </div>
       </div>
     </div>
   )
@@ -870,18 +885,22 @@ export function PreferencesTab({ prefs, set }: TabProps) {
         <div>
           <SectionLabel>Auto-retract</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-            <RetractSlider
+            <RetractControl
               label="On hover"
               desc="Collapse delay when cursor leaves the peek view"
               value={prefs.hoverRetractMs}
-              min={50} max={800} step={50}
+              presets={[[200, 'Snappy'], [500, 'Gentle']]}
+              min={100}
+              max={2000}
               onChange={(v) => set({ hoverRetractMs: v })}
             />
-            <RetractSlider
+            <RetractControl
               label="When expanded"
               desc="Collapse delay when cursor leaves the expanded view"
               value={prefs.expandRetractMs}
-              min={300} max={3000} step={100}
+              presets={[[800, 'Quick'], [1200, 'Relaxed']]}
+              min={300}
+              max={5000}
               onChange={(v) => set({ expandRetractMs: v })}
             />
           </div>
@@ -1144,7 +1163,9 @@ function RipplePreview({ variant, accent }: { variant: Ripple; accent: AccentKey
           >
             FOCUS DONE
           </span>
-          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, color: 'var(--sp-text)' }}>
+          <span
+            style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, color: 'var(--sp-text)' }}
+          >
             00:00
           </span>
         </div>
