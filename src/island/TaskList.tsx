@@ -271,7 +271,7 @@ function TaskRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 5,
         padding: '5px 12px',
         margin: '1px 4px',
         borderRadius: 8,
@@ -315,7 +315,7 @@ function TaskRow({
       </button>
 
       {/* Title */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {isEditing ? (
           <input
             value={editText}
@@ -328,7 +328,7 @@ function TaskRow({
             }}
             onBlur={() => onCommitEdit(task.id)}
             style={{
-              flex: 1,
+              width: '100%',
               background: 'transparent',
               border: `1px solid ${accent}`,
               borderRadius: 4,
@@ -341,65 +341,27 @@ function TaskRow({
             }}
           />
         ) : (
-          <>
-            <span
-              title={task.title}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontSize: 12.5,
-                color: task.done ? 'var(--il-muted)' : isActive ? accent : 'var(--il-text)',
-                textDecoration: task.done ? 'line-through' : 'none',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                letterSpacing: '-0.005em',
-              }}
-            >
-              {task.title}
-            </span>
-            {hovered && (
-              <button
-                aria-label="Edit task title"
-                onClick={(e) => { e.stopPropagation(); onStartEdit(task) }}
-                style={{
-                  flexShrink: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--il-muted)',
-                  cursor: 'pointer',
-                  padding: '1px 2px',
-                  lineHeight: 1,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                  <path
-                    d="M8.5 1.5L10.5 3.5L4 10L1 11L2 8L8.5 1.5Z"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            )}
-          </>
+          <span
+            title={task.title}
+            style={{
+              display: 'block',
+              fontSize: 12.5,
+              color: task.done ? 'var(--il-muted)' : isActive ? accent : 'var(--il-text)',
+              textDecoration: task.done ? 'line-through' : 'none',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              letterSpacing: '-0.005em',
+            }}
+          >
+            {task.title}
+          </span>
         )}
       </div>
 
-      {/* Estimate pips + ±buttons (on hover or active) */}
-      {(hovered || isActive) && !task.done && (
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Pips
-            completed={task.completedPomodoros}
-            estimate={task.estimatePomodoros}
-            accent={accent}
-          />
+      {/* Session controls: − + pips — not shown for done tasks or while editing */}
+      {!isEditing && !task.done && (
+        <>
           <button
             aria-label="Fewer sessions"
             onClick={(e) => { e.stopPropagation(); onAdjustEstimate(-1) }}
@@ -414,28 +376,41 @@ function TaskRow({
           >
             +
           </button>
-        </div>
+          <Pips
+            completed={task.completedPomodoros}
+            estimate={task.estimatePomodoros}
+            accent={accent}
+          />
+        </>
       )}
 
-      {/* Delete (on hover) */}
-      {hovered && (
+      {/* Edit — not shown while editing */}
+      {!isEditing && (
         <button
-          aria-label="Delete task"
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          style={{
-            flexShrink: 0,
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--il-muted)',
-            cursor: 'pointer',
-            padding: '2px 2px',
-            fontSize: 11,
-            lineHeight: 1,
-          }}
+          aria-label="Edit task title"
+          onClick={(e) => { e.stopPropagation(); onStartEdit(task) }}
+          style={iconActionBtn}
         >
-          ✕
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M8.5 1.5L10.5 3.5L4 10L1 11L2 8L8.5 1.5Z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       )}
+
+      {/* Delete */}
+      <button
+        aria-label="Delete task"
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        style={iconActionBtn}
+      >
+        ✕
+      </button>
     </div>
   )
 }
@@ -482,4 +457,18 @@ const pipBtn: React.CSSProperties = {
   display: 'grid',
   placeItems: 'center',
   padding: 0,
+  flexShrink: 0,
+}
+
+const iconActionBtn: React.CSSProperties = {
+  flexShrink: 0,
+  background: 'transparent',
+  border: 'none',
+  color: 'var(--il-muted)',
+  cursor: 'pointer',
+  padding: '1px 2px',
+  fontSize: 11,
+  lineHeight: 1,
+  display: 'grid',
+  placeItems: 'center',
 }
