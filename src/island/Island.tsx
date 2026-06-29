@@ -52,21 +52,48 @@ function stop(e: React.MouseEvent) {
   e.stopPropagation()
 }
 
+// Height allowance added below the panel when the menu is open, so the
+// Electron window auto-grows to reveal the absolutely-positioned dropdown.
+const MENU_ALLOWANCE = 156
+
 export function Island(props: IslandProps) {
+  let panel: React.ReactNode
   switch (props.present) {
     case 'collapsed':
-      return <Collapsed {...props} />
+      panel = <Collapsed {...props} />
+      break
     case 'peek':
-      return <Peek {...props} />
+      panel = <Peek {...props} />
+      break
     case 'expanded':
-      return <Expanded {...props} />
+      panel = <Expanded {...props} />
+      break
     case 'tasks':
-      return <ExpandedWithTasks {...props} />
+      panel = <ExpandedWithTasks {...props} />
+      break
     default: {
       const _exhaustive: never = props.present
-      return _exhaustive
+      panel = _exhaustive
     }
   }
+
+  const showMenu = (props.present === 'expanded' || props.present === 'tasks') && props.menuOpen
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      {panel}
+      {showMenu && (
+        <>
+          {/* Invisible spacer keeps the Electron window tall enough for the floating menu */}
+          <div style={{ height: MENU_ALLOWANCE, pointerEvents: 'none', visibility: 'hidden' }} />
+          {/* Absolutely-positioned menu — floats over task list and any other content */}
+          <div style={{ position: 'absolute', right: 0, top: `calc(100% - ${MENU_ALLOWANCE}px + 4px)`, zIndex: 100 }} onClick={stop}>
+            <MenuDropdown onTasks={props.onOpenTasks} onSettings={props.onSettings} onQuit={props.onQuit} />
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 // Simulates the physical notch camera — always black regardless of theme.
@@ -357,8 +384,8 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 }
 
 /** Shared body used by both Expanded and ExpandedWithTasks. */
-function ExpandedBody(props: IslandProps & { bottomRadius?: string | number; noShadow?: boolean }) {
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius, noShadow } =
+function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
+  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
     props
   const br = bottomRadius ?? 26
   return (
@@ -370,7 +397,7 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number; noS
         color: 'var(--il-text)',
         borderRadius: `${notch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
         padding: `${notch ? 26 : 22}px 24px 20px`,
-        boxShadow: noShadow ? 'none' : '0 24px 64px rgba(0,0,0,.48),0 5px 14px rgba(0,0,0,.32)',
+        boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
         cursor: 'pointer',
@@ -503,14 +530,6 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number; noS
         <div style={{ flex: 1 }} />
         <Menu onToggleMenu={props.onToggleMenu} />
       </div>
-      {props.menuOpen && (
-        <div
-          style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}
-          onClick={stop}
-        >
-          <MenuDropdown onTasks={props.onOpenTasks} onSettings={props.onSettings} onQuit={props.onQuit} />
-        </div>
-      )}
     </div>
   )
 }
@@ -519,7 +538,6 @@ function Expanded(props: IslandProps) {
   return <ExpandedBody {...props} />
 }
 
-/** Expanded panel with the task list appended below. */
 /** Expanded panel with the task list appended below — shadow on wrapper, not inner body. */
 function ExpandedWithTasks(props: IslandProps) {
   return (
@@ -527,17 +545,16 @@ function ExpandedWithTasks(props: IslandProps) {
       display: 'flex',
       flexDirection: 'column',
       borderRadius: props.notch ? '0 0 26px 26px' : 26,
-      boxShadow: '0 24px 64px rgba(0,0,0,.48),0 5px 14px rgba(0,0,0,.32)',
+      boxShadow: 'none',
       overflow: 'hidden',
     }}>
-      <ExpandedBody {...props} bottomRadius={0} noShadow />
+      <ExpandedBody {...props} bottomRadius={0} />
       {props.tasks && (
         <TaskList tasks={props.tasks} accent={props.view.accent} onClose={props.onCloseTasks} />
       )}
     </div>
   )
 }
-
 const iconBtn: CSSProperties = {
   width: 42,
   height: 42,
