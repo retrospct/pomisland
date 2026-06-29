@@ -17,43 +17,22 @@ import type {
   TimerStyle,
 } from '@shared/types'
 import type { CSSProperties, ReactNode } from 'react'
-import { useState } from 'react'
 
-/** Three tapering wind lines — conveys a quick gust/snap. */
-function WindIcon() {
+/** Circular arrow — reset to default. */
+function ResetIcon() {
   return (
     <svg
-      width="15"
-      height="15"
-      viewBox="0 0 15 15"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-    >
-      <path d="M1 4.5 Q5 3 9 4.5" strokeWidth="1.6" />
-      <path d="M1 7.5 Q6 5.5 11 7.5" strokeWidth="1.6" />
-      <path d="M1 10.5 Q4.5 9 7 10.5" strokeWidth="1.6" />
-    </svg>
-  )
-}
-
-/** Simple leaf with a centre vein — conveys gentle, unhurried. */
-function LeafIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 15 15"
+      width="13"
+      height="13"
+      viewBox="0 0 13 13"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
+      strokeWidth="1.6"
     >
-      <path
-        d="M7.5 13 C7.5 13 2 10 2 5.5 C2 2.5 4.5 1 7.5 1 C10.5 1 13 2.5 13 5.5 C13 10 7.5 13 7.5 13 Z"
-        strokeWidth="1.5"
-      />
-      <path d="M7.5 13 L7.5 4" strokeWidth="1.3" />
+      <path d="M1.5 6.5a5 5 0 1 0 1-2.9" />
+      <path d="M1.5 1.5v3h3" />
     </svg>
   )
 }
@@ -292,72 +271,11 @@ function SelectCard({
   )
 }
 
-function TooltipButton({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: ReactNode
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  const [show, setShow] = useState(false)
-  return (
-    <div style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        onClick={onClick}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 10,
-          border: `1px solid ${active ? 'var(--sp-teal)' : 'var(--sp-border)'}`,
-          background: active ? 'var(--sp-tint)' : 'transparent',
-          color: active ? 'var(--sp-teal)' : 'var(--sp-muted)',
-          cursor: 'pointer',
-          display: 'grid',
-          placeItems: 'center',
-          transition: 'all .15s',
-          padding: 0,
-        }}
-      >
-        {icon}
-      </button>
-      {show && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 'calc(100% + 6px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'var(--sp-surface)',
-            border: '1px solid var(--sp-border)',
-            borderRadius: 7,
-            padding: '4px 9px',
-            fontFamily: SANS,
-            fontSize: 11.5,
-            color: 'var(--sp-body)',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,.28)',
-            zIndex: 10,
-          }}
-        >
-          {label}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function RetractControl({
   label,
   desc,
   value,
-  presets,
+  defaultValue,
   min,
   max,
   onChange,
@@ -365,12 +283,13 @@ function RetractControl({
   label: string
   desc: string
   value: number
-  presets: [number, ReactNode, string][]
+  defaultValue: number
   min: number
   max: number
   onChange: (v: number) => void
 }) {
   const fmt = (ms: number) => (ms / 1000).toFixed(1) + 's'
+  const isDefault = value === defaultValue
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
@@ -381,31 +300,40 @@ function RetractControl({
           {desc}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
-        {presets.map(([ms, icon, tipLabel]) => (
-          <TooltipButton
-            key={ms}
-            icon={icon}
-            label={tipLabel}
-            active={value === ms}
-            onClick={() => onChange(ms)}
-          />
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <StepButton onClick={() => onChange(Math.max(min, value - 100))}>&minus;</StepButton>
-          <span
-            style={{
-              fontFamily: MONO,
-              fontSize: 13,
-              color: 'var(--sp-teal)',
-              minWidth: 38,
-              textAlign: 'center',
-            }}
-          >
-            {fmt(value)}
-          </span>
-          <StepButton onClick={() => onChange(Math.min(max, value + 100))}>+</StepButton>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+        <button
+          title={`Reset to default (${fmt(defaultValue)})`}
+          onClick={() => onChange(defaultValue)}
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 7,
+            border: '1px solid var(--sp-border)',
+            background: 'var(--sp-surface)',
+            color: 'var(--sp-muted)',
+            cursor: isDefault ? 'default' : 'pointer',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 0,
+            opacity: isDefault ? 0.35 : 1,
+            transition: 'opacity .15s',
+          }}
+        >
+          <ResetIcon />
+        </button>
+        <StepButton onClick={() => onChange(Math.max(min, value - 100))}>&minus;</StepButton>
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 13,
+            color: 'var(--sp-teal)',
+            minWidth: 38,
+            textAlign: 'center',
+          }}
+        >
+          {fmt(value)}
+        </span>
+        <StepButton onClick={() => onChange(Math.min(max, value + 100))}>+</StepButton>
       </div>
     </div>
   )
@@ -982,10 +910,7 @@ export function PreferencesTab({ prefs, set }: TabProps) {
               label="On hover"
               desc="Collapse delay when cursor leaves the peek view"
               value={prefs.hoverRetractMs}
-              presets={[
-                [200, <WindIcon />, 'Snappy — 0.2s'],
-                [500, <LeafIcon />, 'Gentle — 0.5s'],
-              ]}
+              defaultValue={200}
               min={100}
               max={2000}
               onChange={(v) => set({ hoverRetractMs: v })}
@@ -994,10 +919,7 @@ export function PreferencesTab({ prefs, set }: TabProps) {
               label="When expanded"
               desc="Collapse delay when cursor leaves the expanded view"
               value={prefs.expandRetractMs}
-              presets={[
-                [800, <WindIcon />, 'Quick — 0.8s'],
-                [1200, <LeafIcon />, 'Relaxed — 1.2s'],
-              ]}
+              defaultValue={800}
               min={300}
               max={5000}
               onChange={(v) => set({ expandRetractMs: v })}

@@ -37,7 +37,7 @@ export const DEFAULT_PREFS: Prefs = {
   alwaysTop: true,
   magnetic: true,
   hoverRetractMs: 200,
-  expandRetractMs: 1000,
+  expandRetractMs: 800,
 }
 
 type Listener = (p: Prefs) => void
