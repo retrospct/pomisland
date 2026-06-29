@@ -384,8 +384,8 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 }
 
 /** Shared body used by both Expanded and ExpandedWithTasks. */
-function ExpandedBody(props: IslandProps & { bottomRadius?: string | number; noShadow?: boolean }) {
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius, noShadow } =
+function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
+  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
     props
   const br = bottomRadius ?? 26
   return (
@@ -548,7 +548,7 @@ function ExpandedWithTasks(props: IslandProps) {
       boxShadow: 'none',
       overflow: 'hidden',
     }}>
-      <ExpandedBody {...props} bottomRadius={0} noShadow />
+      <ExpandedBody {...props} bottomRadius={0} />
       {props.tasks && (
         <TaskList tasks={props.tasks} accent={props.view.accent} onClose={props.onCloseTasks} />
       )}

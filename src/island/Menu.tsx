@@ -65,15 +65,14 @@ export function MenuDropdown({ onTasks, onSettings, onQuit }: DropdownProps) {
         Tasks
       </button>
       <button className="island-menu-item" onClick={onSettings} style={menuItem}>
-        <svg width="15" height="15" viewBox="0 0 14 14">
-          <circle cx="7" cy="7" r="2.4" fill="none" stroke="var(--il-icon)" strokeWidth="1.3" />
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
           <path
-            d="M7 1.4 v1.6 M7 11 v1.6 M1.4 7 h1.6 M11 7 h1.6 M3 3 l1.1 1.1 M9.9 9.9 l1.1 1.1 M11 3 l-1.1 1.1 M4.1 9.9 l-1.1 1.1"
-            fill="none"
+            d="M6.3 1.5h2.4l.3 1.3c.4.1.7.3 1 .5l1.2-.5 1.7 1.7-.5 1.2c.2.3.4.6.5 1l1.3.3v2.4l-1.3.3c-.1.4-.3.7-.5 1l.5 1.2-1.7 1.7-1.2-.5c-.3.2-.6.4-1 .5l-.3 1.3H6.3l-.3-1.3c-.4-.1-.7-.3-1-.5l-1.2.5-1.7-1.7.5-1.2c-.2-.3-.4-.6-.5-1L.8 9V6.6l1.3-.3c.1-.4.3-.7.5-1L2.1 4l1.7-1.7 1.2.5c.3-.2.6-.4 1-.5l.3-1.3z"
             stroke="var(--il-icon)"
             strokeWidth="1.3"
-            strokeLinecap="round"
+            strokeLinejoin="round"
           />
+          <circle cx="7.5" cy="7.5" r="2" stroke="var(--il-icon)" strokeWidth="1.3" />
         </svg>
         Settings
       </button>
@@ -127,7 +126,6 @@ const menuItem: React.CSSProperties = {
   gap: 10,
   width: '100%',
   textAlign: 'left',
-  background: 'transparent',
   border: 'none',
   color: 'var(--il-text)',
   fontFamily: "'Inter', sans-serif",
