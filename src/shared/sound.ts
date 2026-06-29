@@ -201,6 +201,8 @@ export type Voice = (eng: Engine, t0: number) => void
 const vChime: Voice = (eng, t0) => {
   const { ctx } = eng
   const base = 880
+  // Extended decay (was 0.9 s) so the voice rings for the full COMPLETE_HOLD_MS window.
+  const bellDur = 1.7
   ;[0, 0.16].forEach((off, i) => {
     const f = i ? base * 1.5 : base
     const car = ctx.createOscillator()
@@ -215,13 +217,13 @@ const vChime: Voice = (eng, t0) => {
     mg.gain.exponentialRampToValueAtTime(1, t0 + off + 0.7)
     mod.connect(mg)
     mg.connect(car.frequency)
-    const g = envGain(ctx, t0 + off, { attack: 0.004, dur: 0.9, peak: 0.52 })
+    const g = envGain(ctx, t0 + off, { attack: 0.004, dur: bellDur, peak: 0.52 })
     car.connect(g)
     car.start(t0 + off)
     mod.start(t0 + off)
-    car.stop(t0 + off + 1)
-    mod.stop(t0 + off + 1)
-    route(eng, g, 0.9, 0.25)
+    car.stop(t0 + off + bellDur + 0.1)
+    mod.stop(t0 + off + bellDur + 0.1)
+    route(eng, g, 0.9, 0.35)
   })
 }
 
@@ -247,13 +249,15 @@ const vMarimba: Voice = (eng, t0) => {
   const notes = [587.33, 880]
   notes.forEach((f, i) => {
     const at = t0 + i * 0.12
-    route(eng, note(ctx, at, 'sine', f, 0.5, 0.002, 0.62), 0.9, 0.12)
+    // Second bar rings out for 2 s (marimba resonator sustain) to fill the hold window.
+    const fundamentalDur = i === 1 ? 2.0 : 0.5
+    route(eng, note(ctx, at, 'sine', f, fundamentalDur, 0.002, 0.62), 0.9, 0.12)
     // Brighter, slightly louder mallet attack adds punch without changing the pitch.
     route(eng, note(ctx, at, 'sine', f * 4, 0.18, 0.001, 0.2), 0.9, 0)
   })
 }
 
-/** Crisp modern UI — three quick ascending triangle blips with a short attack ping for punch. */
+/** Crisp modern UI — three quick ascending triangle blips then a sustained top-note ring. */
 const vDigital: Voice = (eng, t0) => {
   const { ctx } = eng
   ;[880, 1174.66, 1567.98].forEach((f, i) => {
@@ -262,6 +266,10 @@ const vDigital: Voice = (eng, t0) => {
     // Very short higher-octave transient: adds a snappy "tick" of presence, not harshness.
     route(eng, note(ctx, at, 'triangle', f * 2, 0.035, 0.0005, 0.12), 0.8, 0)
   })
+  // Sustained ring at the top pitch: the arpeggio resolves into a 1.6 s tone so the voice
+  // feels complete rather than cut short against the COMPLETE_HOLD_MS window.
+  const ringAt = t0 + 3 * 0.09
+  route(eng, note(ctx, ringAt, 'triangle', 1567.98, 1.6, 0.005, 0.35), 0.9, 0.2)
 }
 
 /** Blade Runner CS-80 pad — detuned-saw unison, slow filter sweep, vibrato, long tail. */
@@ -390,14 +398,17 @@ const vPocket: Voice = (eng, t0) => {
   route(eng, tone, 0.9, 0.14)
   seq.forEach((f, i) => {
     const at = t0 + i * 0.085
+    // Top note of the arpeggio holds for 1.5 s: feels like a resolution, not a cut-off.
+    const isLast = i === seq.length - 1
+    const dur = isLast ? 1.5 : 0.11
     const o = ctx.createOscillator()
     o.type = 'square'
     o.frequency.value = f
-    const g = envGain(ctx, at, { attack: 0.002, dur: 0.11, peak: 0.42 })
+    const g = envGain(ctx, at, { attack: 0.002, dur, peak: 0.42 })
     o.connect(g)
     g.connect(tone)
     o.start(at)
-    o.stop(at + 0.14)
+    o.stop(at + (isLast ? dur + 0.05 : 0.14))
   })
 }
 
@@ -430,8 +441,9 @@ const vKoto: Voice = (eng, t0) => {
     route(eng, ng, 0.7, 0.3)
 
     // Harmonic body: higher partials are quieter and decay faster, like a real string.
+    // Second note's fundamental extends to 2 s so the voice rings past 1 s total.
     const harmonics: [mult: number, peak: number, dur: number][] = [
-      [1, 0.34, 1.4],
+      [1, 0.34, i === 1 ? 2.0 : 1.4],
       [2, 0.12, 0.7],
       [3, 0.06, 0.4],
     ]
@@ -462,7 +474,9 @@ const vAuroraSynth: Voice = (eng, t0) => {
     o.frequency.value = f
     o.detune.value = (Math.random() * 2 - 1) * 14
     const dur = 0.08 + Math.random() * 0.12
-    const g = envGain(ctx, at, { attack: 0.01, dur, peak: 0.18 + Math.random() * 0.16 })
+    // Peak boosted 2× (was 0.18–0.34) so the synth fallback sits at a consistent loudness
+    // band alongside the other voices; the master limiter backstops any alignment spike.
+    const g = envGain(ctx, at, { attack: 0.01, dur, peak: 0.36 + Math.random() * 0.32 })
     o.connect(g)
     o.start(at)
     o.stop(at + dur + 0.05)
@@ -474,6 +488,7 @@ const vAuroraSynth: Voice = (eng, t0) => {
   }
 
   // The pad the grains settle into: a soft low Fmaj7 voicing (F3 A3 C4 E4) that swells in.
+  // Gain boosted 2× (was 0.30 / 0.24) to match the louder grain layer.
   const padDur = 2.8
   const chord = [174.61, 220, 261.63, 329.63]
   const lp = ctx.createBiquadFilter()
@@ -483,8 +498,8 @@ const vAuroraSynth: Voice = (eng, t0) => {
   lp.Q.value = 0.7
   const pg = ctx.createGain()
   pg.gain.setValueAtTime(0.0001, t0)
-  pg.gain.linearRampToValueAtTime(0.3, t0 + 1.0)
-  pg.gain.linearRampToValueAtTime(0.24, t0 + padDur * 0.6)
+  pg.gain.linearRampToValueAtTime(0.60, t0 + 1.0)
+  pg.gain.linearRampToValueAtTime(0.48, t0 + padDur * 0.6)
   pg.gain.exponentialRampToValueAtTime(0.0001, t0 + padDur)
   lp.connect(pg)
   for (const f of chord) {
