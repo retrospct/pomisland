@@ -126,6 +126,7 @@ const menuItem: React.CSSProperties = {
   gap: 10,
   width: '100%',
   textAlign: 'left',
+  background: 'transparent',
   border: 'none',
   color: 'var(--il-text)',
   fontFamily: "'Inter', sans-serif",
