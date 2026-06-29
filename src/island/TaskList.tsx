@@ -319,22 +319,8 @@ function TaskRow({
         )}
       </button>
 
-      {/* Active pip */}
-      {isActive && !task.done && (
-        <span
-          style={{
-            flexShrink: 0,
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: accent,
-            marginLeft: -4,
-          }}
-        />
-      )}
-
       {/* Title */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
         {isEditing ? (
           <input
             value={editText}
@@ -347,7 +333,7 @@ function TaskRow({
             }}
             onBlur={() => onCommitEdit(task.id)}
             style={{
-              width: '100%',
+              flex: 1,
               background: 'transparent',
               border: `1px solid ${accent}`,
               borderRadius: 4,
@@ -360,22 +346,51 @@ function TaskRow({
             }}
           />
         ) : (
-          <span
-            title={task.title}
-            onDoubleClick={(e) => { e.stopPropagation(); onStartEdit(task) }}
-            style={{
-              display: 'block',
-              fontSize: 12.5,
-              color: task.done ? MUTED : TEXT,
-              textDecoration: task.done ? 'line-through' : 'none',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              letterSpacing: '-0.005em',
-            }}
-          >
-            {task.title}
-          </span>
+          <>
+            <span
+              title={task.title}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 12.5,
+                color: task.done ? MUTED : isActive ? accent : TEXT,
+                textDecoration: task.done ? 'line-through' : 'none',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                letterSpacing: '-0.005em',
+              }}
+            >
+              {task.title}
+            </span>
+            {hovered && (
+              <button
+                aria-label="Edit task title"
+                onClick={(e) => { e.stopPropagation(); onStartEdit(task) }}
+                style={{
+                  flexShrink: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  color: MUTED,
+                  cursor: 'pointer',
+                  padding: '1px 2px',
+                  lineHeight: 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                  <path
+                    d="M8.5 1.5L10.5 3.5L4 10L1 11L2 8L8.5 1.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </>
         )}
       </div>
 
