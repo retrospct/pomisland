@@ -112,8 +112,8 @@ limiter is the real runtime guarantee.
   can't blast or emit NaN. New voices should keep peak under the ceiling and roughly within the
   roster's loudness band (~−4 to −15 dBFS peak; ambient voices like `aurora` sit at the soft end).
 - `node-web-audio-api` is a dev-only dependency; the shipped renderer still pulls in no audio libs.
-- **Licensing caveat:** the `aurora` clip is derived from third-party video audio (a YouTube
-  Microcosm demo). Fine for local/dev use, but **resolve licensing before packaging or
-  distribution** — replace it with an original/licensed recording, or ship the synth fallback.
-  The fallback means the app still has a working `aurora` voice even with the asset removed.
+- **Licensing (resolved, MO-26):** the `aurora` clip is derived from third-party video audio (a
+  YouTube Microcosm demo). The owner confirmed its use is **fine** for distribution, so it ships
+  as-is. The synth fallback (`vAuroraSynth`) remains in place, so the `aurora` voice still works
+  even if the asset is ever removed or fails to decode.
 - Reintroducing `custom` is a localized union + UI + file-IO change, not a redesign.

@@ -30,7 +30,58 @@ it; drag it away to float.
 | `npm run preview`   | Run the production build locally                         |
 | `npm run typecheck` | `tsc --noEmit` for the renderer and the node projects   |
 | `npm run lint`      | ESLint over `*.ts/*.tsx`                                 |
-| `npm run package`   | Build + `electron-builder --mac --dir`                  |
+| `npm run package`   | Build + `electron-builder --mac --dir` (unsigned `.app`, for smoke tests) |
+| `npm run dist:mac`  | Build + signed/notarized `.dmg` + `.zip` (needs Apple creds — see below) |
+
+## Packaging & distribution
+
+`electron-builder.yml` builds a macOS **menu-bar utility** (`appId: com.pomoisland.app`,
+`LSUIElement` → no Dock icon). Only compiled output in `out/` is shipped; the app declares no
+production `dependencies`, so dev-only tools (e.g. `node-web-audio-api`, used solely by
+`npm run audio:check`) can never end up in the bundle.
+
+```bash
+npm run package    # unsigned .app at release/mac-<arch>/Pomoisland.app — for local testing
+npm run dist:mac   # signed + notarized .dmg / .zip at release/ — for distribution
+```
+
+> **First launch starts fresh.** Preferences live in `~/Library/Application Support/<appId>/prefs.json`.
+> Because the appId moved to `com.pomoisland.app` during the rename, existing users get default
+> prefs on first launch of the renamed build (`store.ts` already tolerates the missing file).
+
+### Signing & notarization prerequisites
+
+`npm run package` (`--dir`) works with **no Apple account** — it skips signing and produces a
+locally launchable, unquarantined `.app`. A distributable, Gatekeeper-passing build
+(`npm run dist:mac`) additionally requires:
+
+1. **Apple Developer Program** membership (Developer ID distribution).
+2. A **"Developer ID Application"** certificate available to the build, via either the login
+   keychain or, for CI, `CSC_LINK` (base64 `.p12`) + `CSC_KEY_PASSWORD`.
+3. **Notarization credentials** in the environment — either an Apple ID:
+
+   ```bash
+   export APPLE_ID="you@example.com"
+   export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"   # appleid.apple.com → App-Specific Passwords
+   export APPLE_TEAM_ID="ABCDE12345"
+   ```
+
+   …or an App Store Connect API key (recommended for CI):
+
+   ```bash
+   export APPLE_API_KEY="$(base64 -i AuthKey_XXXX.p8)"
+   export APPLE_API_KEY_ID="KEYID"
+   export APPLE_API_ISSUER="issuer-uuid"
+   export APPLE_TEAM_ID="ABCDE12345"
+   ```
+
+Hardened runtime is on, with entitlements in `build/entitlements.mac.plist` (the minimal
+JIT/unsigned-memory/library-validation set Electron needs; no mic/camera/network — Pomoisland
+only *plays* synthesized audio). Verify a finished build with `spctl --assess --type execute -vv`.
+
+> **App icon.** No custom icon ships yet, so the default Electron icon is used (electron-builder
+> logs `default Electron icon is used`). Drop a 1024×1024 `build/icon.png` (or `build/icon.icns`)
+> to brand it — no config change needed.
 
 ## Architecture
 
