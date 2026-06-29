@@ -155,12 +155,6 @@ export function IslandApp() {
             e.stopPropagation()
             setMenuOpen((v) => !v)
           }}
-          switchLabel={view.isBreak ? 'Switch to focus' : 'Switch to break'}
-          onSwitch={(e) => {
-            e.stopPropagation()
-            setMenuOpen(false)
-            window.api.timer.action({ type: 'switchMode' })
-          }}
           onSettings={(e) => {
             e.stopPropagation()
             setMenuOpen(false)
