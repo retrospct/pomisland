@@ -94,8 +94,10 @@ export interface Prefs {
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----
   alwaysTop: boolean
   magnetic: boolean
-  /** How quickly the island retracts after the cursor leaves (MO-10). */
-  retractSpeed: RetractSpeed
+  /** Delay (ms) before collapsing from peek after cursor leaves. */
+  hoverRetractMs: number
+  /** Delay (ms) before collapsing from expanded after cursor leaves. */
+  expandRetractMs: number
 }
 
 export type TimerActionType = 'playPause' | 'reset' | 'skip' | 'switchMode' | 'quit'
@@ -131,8 +133,6 @@ export type TaskMutation =
   | { type: 'update'; id: string; patch: Partial<Pick<Task, 'title' | 'done' | 'estimatePomodoros'>> }
   | { type: 'setActive'; id: string | null }
   | { type: 'delete'; id: string }
-
-export type RetractSpeed = 'quick' | 'normal' | 'slow'
 
 /** Drag / snap status of the island window, broadcast during a drag. */
 export interface Placement {

@@ -1,16 +1,10 @@
 import { playSound, playTick } from '@shared/sound'
-import type { Placement, Prefs, RetractSpeed, TimerState } from '@shared/types'
+import type { Placement, Prefs, TimerState } from '@shared/types'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { deriveIsland } from './derive'
 import { Island, type Present } from './Island'
 import { islandPaletteVars, resolveTheme } from './palette'
 import { useDrag } from './useDrag'
-
-const RETRACT_MS: Record<RetractSpeed, { peek: number; expanded: number }> = {
-  quick: { peek: 200, expanded: 600 },
-  normal: { peek: 400, expanded: 1200 },
-  slow: { peek: 800, expanded: 2500 },
-}
 
 export function IslandApp() {
   const [state, setState] = useState<TimerState | null>(null)
@@ -178,8 +172,9 @@ export function IslandApp() {
         if (!expanded && !placement.dragging) setPeek(true)
       }}
       onMouseLeave={() => {
-        const delays = RETRACT_MS[prefs?.retractSpeed ?? 'normal']
-        const delay = expanded ? delays.expanded : delays.peek
+        const delay = expanded
+          ? (prefs?.expandRetractMs ?? 1000)
+          : (prefs?.hoverRetractMs ?? 200)
         retractTimer.current = setTimeout(() => {
           retractTimer.current = null
           setExpanded(false)

@@ -10,7 +10,6 @@ import type {
   AccentKey,
   Layout,
   Prefs,
-  RetractSpeed,
   Ripple,
   Sound,
   ThemeChoice,
@@ -250,6 +249,58 @@ function SelectCard({
         {label}
       </span>
     </button>
+  )
+}
+
+function RetractSlider({
+  label,
+  desc,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string
+  desc: string
+  value: number
+  min: number
+  max: number
+  step: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div>
+        <div style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--sp-body)' }}>{label}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, color: 'var(--sp-faint)', marginTop: 2 }}>
+          {desc}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: '0 0 auto' }}>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value, 10))}
+          className="sp-range"
+          style={{ width: 90 }}
+        />
+        <span
+          style={{
+            fontFamily: MONO,
+            fontSize: 12,
+            color: 'var(--sp-teal)',
+            minWidth: 42,
+            textAlign: 'right',
+          }}
+        >
+          {value}ms
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -817,59 +868,22 @@ export function PreferencesTab({ prefs, set }: TabProps) {
         </div>
 
         <div>
-          <SectionLabel>Auto-retract speed</SectionLabel>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 16,
-            }}
-          >
-            <div>
-              <div style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--sp-body)' }}>
-                Retract delay
-              </div>
-              <div style={{ fontFamily: SANS, fontSize: 11.5, color: 'var(--sp-faint)', marginTop: 2 }}>
-                How long the island stays open after the cursor leaves.
-              </div>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: 3,
-                background: 'var(--sp-field)',
-                border: '1px solid var(--sp-border)',
-                borderRadius: 11,
-                padding: 3,
-                flex: '0 0 auto',
-              }}
-            >
-              {([['quick', 'Quick'], ['normal', 'Normal'], ['slow', 'Slow']] as [RetractSpeed, string][]).map(([k, label]) => {
-                const on = prefs.retractSpeed === k
-                return (
-                  <button
-                    key={k}
-                    onClick={() => set({ retractSpeed: k })}
-                    style={{
-                      height: 30,
-                      minWidth: 34,
-                      padding: '0 11px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      borderRadius: 8,
-                      background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
-                      color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)',
-                      fontFamily: SANS,
-                      fontSize: 12.5,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
+          <SectionLabel>Auto-retract</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <RetractSlider
+              label="On hover"
+              desc="Collapse delay when cursor leaves the peek view"
+              value={prefs.hoverRetractMs}
+              min={50} max={800} step={50}
+              onChange={(v) => set({ hoverRetractMs: v })}
+            />
+            <RetractSlider
+              label="When expanded"
+              desc="Collapse delay when cursor leaves the expanded view"
+              value={prefs.expandRetractMs}
+              min={300} max={3000} step={100}
+              onChange={(v) => set({ expandRetractMs: v })}
+            />
           </div>
         </div>
       </div>
