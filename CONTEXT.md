@@ -31,6 +31,8 @@ Use these terms exactly; avoid the synonyms in parentheses.
 
 - **Accent** — the user-chosen highlight color; drives the ring, dots, and Settings theming.
   Focus uses the accent; break uses a warm clay; the final minute shifts to urgent amber.
+  The swatches are pastels; on a light theme the accent (and break/urgent) is darkened for
+  legibility — the same treatment in both the island and Settings windows.
 - **Timer style** — how progress is drawn: `circular` (ring), `outline` (notch outline), `bar`.
 - **Layout** — collapsed density: `split`, `minimal`, `compact`.
 - **Micro-message / encouraging message** — the small serif nudge in the expanded panel.

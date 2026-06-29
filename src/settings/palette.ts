@@ -3,7 +3,7 @@
 // (segmented fill, toggles, links, tint) — the pastel accent directly on dark, and a
 // darkened version on light so it stays legible.
 
-import { accentHex, darken, hexToRgba, luminance } from '@shared/accent'
+import { accentHex, hexToRgba, luminance, resolveAccentColor } from '@shared/accent'
 import type { AccentKey, ThemeChoice } from '@shared/types'
 import type { CSSProperties } from 'react'
 
@@ -53,7 +53,7 @@ export function paletteVars(theme: ThemeChoice, accent: AccentKey): CSSPropertie
   const resolved = resolveTheme(theme)
   const tok = { ...(resolved === 'dark' ? DARK : LIGHT) }
   const base = accentHex(accent)
-  const primary = resolved === 'dark' ? base : darken(base, 0.55)
+  const primary = resolveAccentColor(base, resolved)
   tok['--sp-teal'] = primary
   tok['--sp-seg-on-bg'] = primary
   tok['--sp-seg-on-text'] = luminance(primary) > 0.55 ? '#17191D' : '#F2F1EC'
