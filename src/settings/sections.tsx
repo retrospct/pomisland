@@ -17,6 +17,7 @@ import type {
   TimerStyle,
 } from '@shared/types'
 import type { CSSProperties, ReactNode } from 'react'
+import { useState } from 'react'
 
 const MONO = "'IBM Plex Mono', monospace"
 const SANS = "'Inter', sans-serif"
@@ -252,6 +253,68 @@ function SelectCard({
   )
 }
 
+function TooltipButton({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          border: `1px solid ${active ? 'var(--sp-teal)' : 'var(--sp-border)'}`,
+          background: active ? 'var(--sp-tint)' : 'transparent',
+          cursor: 'pointer',
+          fontSize: 17,
+          display: 'grid',
+          placeItems: 'center',
+          transition: 'all .15s',
+          padding: 0,
+          filter: active ? 'none' : 'grayscale(0.4) opacity(0.7)',
+        }}
+      >
+        {icon}
+      </button>
+      {show && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 6px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--sp-surface)',
+            border: '1px solid var(--sp-border)',
+            borderRadius: 7,
+            padding: '4px 9px',
+            fontFamily: SANS,
+            fontSize: 11.5,
+            color: 'var(--sp-body)',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,.28)',
+            zIndex: 10,
+          }}
+        >
+          {label}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RetractControl({
   label,
   desc,
@@ -264,14 +327,16 @@ function RetractControl({
   label: string
   desc: string
   value: number
-  presets: [number, string][]
+  presets: [number, string, string][]
   min: number
   max: number
   onChange: (v: number) => void
 }) {
   const fmt = (ms: number) => (ms / 1000).toFixed(1) + 's'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+    <div
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+    >
       <div>
         <div style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--sp-body)' }}>{label}</div>
         <div style={{ fontFamily: SANS, fontSize: 11.5, color: 'var(--sp-faint)', marginTop: 2 }}>
@@ -279,25 +344,14 @@ function RetractControl({
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
-        {presets.map(([ms, name]) => (
-          <button
+        {presets.map(([ms, icon, tipLabel]) => (
+          <TooltipButton
             key={ms}
+            icon={icon}
+            label={tipLabel}
+            active={value === ms}
             onClick={() => onChange(ms)}
-            style={{
-              border: `1px solid ${value === ms ? 'var(--sp-teal)' : 'var(--sp-border)'}`,
-              background: value === ms ? 'var(--sp-tint)' : 'transparent',
-              color: value === ms ? 'var(--sp-teal)' : 'var(--sp-muted)',
-              cursor: 'pointer',
-              padding: '5px 11px',
-              borderRadius: 999,
-              fontFamily: SANS,
-              fontSize: 12,
-              fontWeight: value === ms ? 600 : 500,
-              transition: 'all .15s',
-            }}
-          >
-            {name}
-          </button>
+          />
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <StepButton onClick={() => onChange(Math.max(min, value - 100))}>&minus;</StepButton>
@@ -889,7 +943,10 @@ export function PreferencesTab({ prefs, set }: TabProps) {
               label="On hover"
               desc="Collapse delay when cursor leaves the peek view"
               value={prefs.hoverRetractMs}
-              presets={[[200, 'Snappy'], [500, 'Gentle']]}
+              presets={[
+                [200, '🐇', 'Snappy — 0.2s'],
+                [500, '🐢', 'Gentle — 0.5s'],
+              ]}
               min={100}
               max={2000}
               onChange={(v) => set({ hoverRetractMs: v })}
@@ -898,7 +955,10 @@ export function PreferencesTab({ prefs, set }: TabProps) {
               label="When expanded"
               desc="Collapse delay when cursor leaves the expanded view"
               value={prefs.expandRetractMs}
-              presets={[[800, 'Quick'], [1200, 'Relaxed']]}
+              presets={[
+                [800, '🐇', 'Quick — 0.8s'],
+                [1200, '🐢', 'Relaxed — 1.2s'],
+              ]}
               min={300}
               max={5000}
               onChange={(v) => set({ expandRetractMs: v })}
