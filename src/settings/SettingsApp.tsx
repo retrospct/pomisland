@@ -56,8 +56,12 @@ export function SettingsApp() {
           <button
             onClick={() => window.api.windows.settingsControl('close')}
             style={{ ...closeBtn, ...noDrag }}
+            aria-label="Close"
           >
-            Close
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <line x1="1" y1="1" x2="10" y2="10" />
+              <line x1="10" y1="1" x2="1" y2="10" />
+            </svg>
           </button>
         </div>
 
@@ -141,11 +145,12 @@ const closeBtn: CSSProperties = {
   cursor: 'pointer',
   background: 'transparent',
   color: 'var(--sp-muted)',
-  fontFamily: SANS,
-  fontSize: 13,
-  fontWeight: 500,
-  padding: '8px 20px',
-  borderRadius: 10,
+  width: 30,
+  height: 30,
+  padding: 0,
+  borderRadius: 8,
+  display: 'grid',
+  placeItems: 'center',
 }
 
 const tabBar: CSSProperties = {
