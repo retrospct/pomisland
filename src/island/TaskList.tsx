@@ -8,11 +8,6 @@ import type { Task, TasksState } from '@shared/types'
 
 const SANS = "'Inter', sans-serif"
 const MONO = "'IBM Plex Mono', monospace"
-const TEXT = '#F2F1EC'
-const MUTED = 'rgba(242,241,236,0.45)'
-const BORDER = 'rgba(242,241,236,0.1)'
-const ACTIVE_BG = 'rgba(242,241,236,0.07)'
-const HOVER_BG = 'rgba(242,241,236,0.04)'
 
 interface TaskListProps {
   tasks: TasksState
@@ -61,10 +56,10 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
       style={{
         width: 320,
         boxSizing: 'border-box',
-        background: '#17191D',
-        color: TEXT,
+        background: 'var(--il-bg)',
+        color: 'var(--il-text)',
         fontFamily: SANS,
-        borderTop: `1px solid ${BORDER}`,
+        borderTop: '1px solid var(--il-border)',
         borderRadius: '0 0 26px 26px',
         paddingBottom: 12,
       }}
@@ -95,16 +90,16 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
           aria-label="Close task list"
           onClick={(e) => { e.stopPropagation(); onClose() }}
           style={{
-            background: 'transparent',
-            border: 'none',
-            color: MUTED,
-            cursor: 'pointer',
-            padding: '2px 2px',
-            fontSize: 13,
-            lineHeight: 1,
-            display: 'grid',
-            placeItems: 'center',
-          }}
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--il-muted)',
+          cursor: 'pointer',
+          padding: '2px 2px',
+          fontSize: 13,
+          lineHeight: 1,
+          display: 'grid',
+          placeItems: 'center',
+        }}
         >
           ✕
         </button>
@@ -117,7 +112,7 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
             style={{
               margin: '0 20px 12px',
               fontSize: 12,
-              color: MUTED,
+              color: 'var(--il-muted)',
               fontStyle: 'italic',
             }}
           >
@@ -151,7 +146,7 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
 
         {done.length > 0 && (
           <>
-            <div style={{ height: 1, background: BORDER, margin: '4px 16px' }} />
+            <div style={{ height: 1, background: 'var(--il-border)', margin: '4px 16px' }} />
             {done.map((task) => (
               <TaskRow
                 key={task.id}
@@ -198,10 +193,10 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
           placeholder="Add task…"
           style={{
             flex: 1,
-            background: 'rgba(242,241,236,0.07)',
-            border: `1px solid ${BORDER}`,
+            background: 'var(--il-line)',
+            border: '1px solid var(--il-border)',
             borderRadius: 8,
-            color: TEXT,
+            color: 'var(--il-text)',
             fontFamily: SANS,
             fontSize: 12.5,
             padding: '7px 10px',
@@ -217,10 +212,10 @@ export function TaskList({ tasks, accent, onClose }: TaskListProps) {
             flexShrink: 0,
             width: 30,
             height: 30,
-            background: addText.trim() ? accent : 'rgba(242,241,236,0.1)',
+            background: addText.trim() ? accent : 'var(--il-track)',
             border: 'none',
             borderRadius: 8,
-            color: addText.trim() ? '#17191D' : MUTED,
+            color: addText.trim() ? 'var(--il-bg)' : 'var(--il-muted)',
             fontFamily: SANS,
             fontSize: 20,
             cursor: addText.trim() ? 'pointer' : 'default',
@@ -280,7 +275,7 @@ function TaskRow({
         padding: '5px 12px',
         margin: '1px 4px',
         borderRadius: 8,
-        background: isActive ? ACTIVE_BG : hovered ? HOVER_BG : 'transparent',
+        background: isActive || hovered ? 'var(--il-line)' : 'transparent',
         transition: 'background .12s',
         cursor: 'pointer',
       }}
@@ -297,7 +292,7 @@ function TaskRow({
           width: 15,
           height: 15,
           borderRadius: 4,
-          border: task.done ? 'none' : `1.5px solid ${isActive ? accent : MUTED}`,
+          border: task.done ? 'none' : `1.5px solid ${isActive ? accent : 'var(--il-muted)'}`,
           background: task.done ? accent : 'transparent',
           display: 'grid',
           placeItems: 'center',
@@ -310,7 +305,7 @@ function TaskRow({
           <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
             <path
               d="M1 3.5L3.2 6L8 1"
-              stroke="#17191D"
+              stroke="var(--il-bg)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -337,7 +332,7 @@ function TaskRow({
               background: 'transparent',
               border: `1px solid ${accent}`,
               borderRadius: 4,
-              color: TEXT,
+              color: 'var(--il-text)',
               fontFamily: SANS,
               fontSize: 12.5,
               padding: '2px 6px',
@@ -353,7 +348,7 @@ function TaskRow({
                 flex: 1,
                 minWidth: 0,
                 fontSize: 12.5,
-                color: task.done ? MUTED : isActive ? accent : TEXT,
+                color: task.done ? 'var(--il-muted)' : isActive ? accent : 'var(--il-text)',
                 textDecoration: task.done ? 'line-through' : 'none',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -371,7 +366,7 @@ function TaskRow({
                   flexShrink: 0,
                   background: 'transparent',
                   border: 'none',
-                  color: MUTED,
+                  color: 'var(--il-muted)',
                   cursor: 'pointer',
                   padding: '1px 2px',
                   lineHeight: 1,
@@ -431,7 +426,7 @@ function TaskRow({
             flexShrink: 0,
             background: 'transparent',
             border: 'none',
-            color: 'rgba(242,241,236,0.28)',
+            color: 'var(--il-muted)',
             cursor: 'pointer',
             padding: '2px 2px',
             fontSize: 11,
@@ -476,9 +471,9 @@ function Pips({
 
 const pipBtn: React.CSSProperties = {
   background: 'transparent',
-  border: '1px solid rgba(242,241,236,0.18)',
+  border: '1px solid var(--il-border-btn)',
   borderRadius: 4,
-  color: MUTED,
+  color: 'var(--il-muted)',
   cursor: 'pointer',
   width: 16,
   height: 16,
