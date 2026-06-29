@@ -357,8 +357,8 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 }
 
 /** Shared body used by both Expanded and ExpandedWithTasks. */
-function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
+function ExpandedBody(props: IslandProps & { bottomRadius?: string | number; noShadow?: boolean }) {
+  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius, noShadow } =
     props
   const br = bottomRadius ?? 26
   return (
@@ -370,7 +370,7 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         color: 'var(--il-text)',
         borderRadius: `${notch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
         padding: `${notch ? 26 : 22}px 24px 20px`,
-        boxShadow: '0 24px 64px rgba(0,0,0,.48),0 5px 14px rgba(0,0,0,.32)',
+        boxShadow: noShadow ? 'none' : '0 24px 64px rgba(0,0,0,.48),0 5px 14px rgba(0,0,0,.32)',
         fontFamily: SANS,
         position: 'relative',
         cursor: 'pointer',
@@ -520,10 +520,17 @@ function Expanded(props: IslandProps) {
 }
 
 /** Expanded panel with the task list appended below. */
+/** Expanded panel with the task list appended below — shadow on wrapper, not inner body. */
 function ExpandedWithTasks(props: IslandProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <ExpandedBody {...props} bottomRadius={0} />
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: props.notch ? '0 0 26px 26px' : 26,
+      boxShadow: '0 24px 64px rgba(0,0,0,.48),0 5px 14px rgba(0,0,0,.32)',
+      overflow: 'hidden',
+    }}>
+      <ExpandedBody {...props} bottomRadius={0} noShadow />
       {props.tasks && (
         <TaskList tasks={props.tasks} accent={props.view.accent} onClose={props.onCloseTasks} />
       )}
