@@ -4,7 +4,7 @@ import { registerGlobalShortcuts, unregisterGlobalShortcuts } from './shortcuts'
 import { getPrefs } from './store'
 import { Timer } from './timer'
 import { createTray, destroyTray } from './tray'
-import { createIslandWindow } from './windows'
+import { createIslandWindow, createSnapOverlayWindow } from './windows'
 
 let timer: Timer | null = null
 
@@ -12,6 +12,7 @@ function bootstrap(): void {
   timer = new Timer(getPrefs)
   registerIpc(timer)
   createIslandWindow()
+  createSnapOverlayWindow()
   createTray()
   timer.start()
 }

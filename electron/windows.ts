@@ -1,4 +1,5 @@
 import { BrowserWindow, screen } from 'electron'
+import type { Display } from 'electron'
 import { join } from 'node:path'
 import type { IslandSize, Placement } from '../src/shared/types'
 import { IPC } from '../src/shared/types'
@@ -7,12 +8,13 @@ import { getPrefs } from './store'
 const RENDERER_URL = process.env['ELECTRON_RENDERER_URL']
 const PRELOAD = join(__dirname, '../preload/preload.js')
 
-// Snap thresholds: how close the window center/top must be to the notch to snap.
+// Snap thresholds: how close the window center/top must be to snap.
 const SNAP_X_TOLERANCE = 110
 const SNAP_Y_TOLERANCE = 56
 
 let islandWin: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
+let snapOverlayWin: BrowserWindow | null = null
 
 const placement: Placement = { snapped: true, dragging: false, nearSnap: false }
 let islandSize: IslandSize = { width: 240, height: 60 }
@@ -22,6 +24,8 @@ interface DragCtx {
   startCursorY: number
   startX: number
   startY: number
+  lastCursorX: number
+  lastCursorY: number
 }
 let drag: DragCtx | null = null
 
@@ -30,21 +34,34 @@ function loadRoute(win: BrowserWindow, htmlFile: string): void {
   else void win.loadFile(join(__dirname, `../renderer/${htmlFile}`))
 }
 
-function primaryWorkArea() {
-  return screen.getPrimaryDisplay().workArea
+/** Return the display containing the given screen point (falls back to primary). */
+function displayAtPoint(x: number, y: number): Display {
+  return screen.getDisplayNearestPoint({ x, y })
 }
 
-function snappedTopLeft(width: number): { x: number; y: number } {
-  const wa = primaryWorkArea()
-  return { x: Math.round(wa.x + wa.width / 2 - width / 2), y: wa.y }
+/**
+ * Top-left origin for snapping the island to the top-center of a display.
+ * Anchors at bounds.y (true top edge) so the island overlaps the menubar on
+ * both notch and external monitors (MO-11).
+ */
+function snappedTopLeft(width: number, display?: Display): { x: number; y: number } {
+  const d = display ?? screen.getPrimaryDisplay()
+  return {
+    x: Math.round(d.bounds.x + d.bounds.width / 2 - width / 2),
+    y: d.bounds.y,
+  }
 }
 
 export function getPlacement(): Placement {
   return { ...placement }
 }
 
+/** Reposition snap overlay, then broadcast placement to all renderer windows. */
 function broadcastPlacement(): void {
-  islandWin?.webContents.send(IPC.islandPlacement, getPlacement())
+  updateSnapOverlay()
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send(IPC.islandPlacement, getPlacement())
+  }
 }
 
 export function createIslandWindow(): BrowserWindow {
@@ -107,7 +124,9 @@ export function resizeIsland(size: IslandSize): void {
   let x: number
   let y: number
   if (placement.snapped) {
-    const tl = snappedTopLeft(width)
+    const b = islandWin.getBounds()
+    const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
+    const tl = snappedTopLeft(width, d)
     x = tl.x
     y = tl.y
   } else {
@@ -128,7 +147,14 @@ export function applyAlwaysOnTop(on: boolean): void {
 export function dragStart(cursorX: number, cursorY: number): void {
   if (!islandWin) return
   const b = islandWin.getBounds()
-  drag = { startCursorX: cursorX, startCursorY: cursorY, startX: b.x, startY: b.y }
+  drag = {
+    startCursorX: cursorX,
+    startCursorY: cursorY,
+    startX: b.x,
+    startY: b.y,
+    lastCursorX: cursorX,
+    lastCursorY: cursorY,
+  }
   placement.dragging = true
   placement.snapped = false
   broadcastPlacement()
@@ -136,34 +162,131 @@ export function dragStart(cursorX: number, cursorY: number): void {
 
 export function dragMove(cursorX: number, cursorY: number): void {
   if (!islandWin || !drag) return
-  const wa = primaryWorkArea()
+  // Use the display containing the cursor for bounds clamping and snap math (MO-11).
+  const d = displayAtPoint(cursorX, cursorY)
   const b = islandWin.getBounds()
   let x = drag.startX + (cursorX - drag.startCursorX)
   let y = drag.startY + (cursorY - drag.startCursorY)
-  x = Math.max(wa.x, Math.min(wa.x + wa.width - b.width, x))
-  y = Math.max(wa.y, Math.min(wa.y + wa.height - b.height, y))
+  // Clamp within the full display bounds (not workArea) so island can overlap the menubar.
+  x = Math.max(d.bounds.x, Math.min(d.bounds.x + d.bounds.width - b.width, x))
+  y = Math.max(d.bounds.y, Math.min(d.bounds.y + d.bounds.height - b.height, y))
   islandWin.setPosition(Math.round(x), Math.round(y))
 
+  drag.lastCursorX = cursorX
+  drag.lastCursorY = cursorY
+
   const centerX = x + b.width / 2
-  const displayCenterX = wa.x + wa.width / 2
+  const displayCenterX = d.bounds.x + d.bounds.width / 2
   const magnetic = getPrefs().magnetic
   placement.nearSnap =
-    magnetic && Math.abs(centerX - displayCenterX) < SNAP_X_TOLERANCE && y - wa.y < SNAP_Y_TOLERANCE
+    magnetic &&
+    Math.abs(centerX - displayCenterX) < SNAP_X_TOLERANCE &&
+    y - d.bounds.y < SNAP_Y_TOLERANCE
   broadcastPlacement()
 }
 
 export function dragEnd(): void {
   if (!islandWin || !drag) return
+  const lastCursorX = drag.lastCursorX
+  const lastCursorY = drag.lastCursorY
   drag = null
   placement.dragging = false
   if (placement.nearSnap) {
     placement.snapped = true
-    const tl = snappedTopLeft(islandSize.width)
+    const d = displayAtPoint(lastCursorX, lastCursorY)
+    const tl = snappedTopLeft(islandSize.width, d)
     islandWin.setBounds({ x: tl.x, y: tl.y, width: islandSize.width, height: islandSize.height })
   }
   placement.nearSnap = false
   broadcastPlacement()
 }
+
+// ---------------------------------------------------------------------------
+// Snap-zone overlay window (MO-8)
+// ---------------------------------------------------------------------------
+
+/** Extra pixels around the island footprint for the glow/outline to breathe. */
+const OVERLAY_PADDING_X = 40
+const OVERLAY_PADDING_Y = 20
+
+export function createSnapOverlayWindow(): BrowserWindow {
+  if (snapOverlayWin) return snapOverlayWin
+
+  const { x, y } = snappedTopLeft(islandSize.width)
+
+  snapOverlayWin = new BrowserWindow({
+    width: islandSize.width + OVERLAY_PADDING_X * 2,
+    height: islandSize.height + OVERLAY_PADDING_Y * 2,
+    x: x - OVERLAY_PADDING_X,
+    y: y - OVERLAY_PADDING_Y,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: {
+      preload: PRELOAD,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  // Always pass all mouse events through — the overlay is purely visual.
+  snapOverlayWin.setIgnoreMouseEvents(true, { forward: true })
+  snapOverlayWin.setAlwaysOnTop(true, 'screen-saver')
+  snapOverlayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  loadRoute(snapOverlayWin, 'snap-overlay.html')
+  snapOverlayWin.on('closed', () => {
+    snapOverlayWin = null
+  })
+  return snapOverlayWin
+}
+
+export function getSnapOverlayWindow(): BrowserWindow | null {
+  return snapOverlayWin
+}
+
+/**
+ * Reposition and show/hide the snap overlay based on current placement state.
+ * Called internally by broadcastPlacement.
+ */
+function updateSnapOverlay(): void {
+  if (!snapOverlayWin) return
+
+  if (!placement.dragging) {
+    if (snapOverlayWin.isVisible()) snapOverlayWin.hide()
+    return
+  }
+
+  // Derive snap target for the display where the cursor currently is.
+  const cursorX = drag?.lastCursorX ?? (islandWin?.getBounds().x ?? 0)
+  const cursorY = drag?.lastCursorY ?? (islandWin?.getBounds().y ?? 0)
+  const d = displayAtPoint(cursorX, cursorY)
+  const snap = snappedTopLeft(islandSize.width, d)
+
+  const w = islandSize.width + OVERLAY_PADDING_X * 2
+  const h = islandSize.height + OVERLAY_PADDING_Y * 2
+  snapOverlayWin.setBounds({
+    x: snap.x - OVERLAY_PADDING_X,
+    y: snap.y - OVERLAY_PADDING_Y,
+    width: w,
+    height: h,
+  })
+
+  if (!snapOverlayWin.isVisible()) {
+    snapOverlayWin.showInactive()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Settings window
+// ---------------------------------------------------------------------------
 
 export function createSettingsWindow(): BrowserWindow {
   if (settingsWin) {

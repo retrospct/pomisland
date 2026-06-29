@@ -105,6 +105,31 @@ export interface SetTaskAction {
 
 export type TimerAction = { type: TimerActionType } | SetTaskAction
 
+// ---------------------------------------------------------------------------
+// Tasks (MO-6) — persisted per-task state owned by the main process.
+// ---------------------------------------------------------------------------
+
+export interface Task {
+  id: string
+  title: string
+  done: boolean
+  /** Estimated pomodoros for this task. */
+  estimatePomodoros: number
+  /** Completed pomodoros logged to this task. */
+  completedPomodoros: number
+}
+
+export interface TasksState {
+  tasks: Task[]
+  activeTaskId: string | null
+}
+
+export type TaskMutation =
+  | { type: 'add'; title: string }
+  | { type: 'update'; id: string; patch: Partial<Pick<Task, 'title' | 'done' | 'estimatePomodoros'>> }
+  | { type: 'setActive'; id: string | null }
+  | { type: 'delete'; id: string }
+
 /** Drag / snap status of the island window, broadcast during a drag. */
 export interface Placement {
   snapped: boolean
@@ -131,6 +156,11 @@ export interface PomApi {
     set(patch: Partial<Prefs>): void
     onChange(cb: (p: Prefs) => void): () => void
   }
+  tasks: {
+    get(): Promise<TasksState>
+    mutate(mutation: TaskMutation): void
+    onChange(cb: (s: TasksState) => void): () => void
+  }
   island: {
     resize(size: IslandSize): void
     onPlacement(cb: (p: Placement) => void): () => void
@@ -154,6 +184,9 @@ export const IPC = {
   prefsGet: 'prefs:get',
   prefsSet: 'prefs:set',
   prefsChanged: 'prefs:changed',
+  tasksGet: 'tasks:get',
+  tasksMutate: 'tasks:mutate',
+  tasksChanged: 'tasks:changed',
   islandResize: 'island:resize',
   islandPlacement: 'island:placement',
   islandGetPlacement: 'island:getPlacement',
