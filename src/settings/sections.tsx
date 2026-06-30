@@ -742,6 +742,9 @@ export function PreferencesTab({ prefs, set }: TabProps) {
             />
           ))}
         </div>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--sp-caption)', lineHeight: 1.4 }}>
+          Controls progress animation in both the snapped notch body and floating card.
+        </p>
       </div>
 
       {/* Left: colors / element placement */}

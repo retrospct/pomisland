@@ -347,8 +347,10 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
               </div>
             )}
             {belowVisible.length === 0 && !hasNotch && (
-              // Non-notch display, nothing below: keep minimum height so body is visible
-              <div aria-hidden style={{ height: 44 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
+                {renderElement('status')}
+                {renderElement('time')}
+              </div>
             )}
           </div>
 
@@ -915,6 +917,8 @@ function OutlinedCard({
         cursor: 'pointer',
         boxSizing: 'border-box',
         flexDirection: showTask ? 'column' : 'row',
+        minWidth: 210,
+        justifyContent: 'space-between',
       }}
     >
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 13 }}>
