@@ -706,6 +706,8 @@ function NotchStyleCard({
       onClick={onClick}
       style={{
         position: 'relative',
+        width: '100%',
+        minWidth: 0,
         border: `1.5px solid ${selected ? 'var(--sp-teal)' : 'var(--sp-border)'}`,
         background: selected ? 'var(--sp-tint)' : 'var(--sp-surface)',
         borderRadius: 12,
@@ -801,7 +803,30 @@ export function PreferencesTab({ prefs, set }: TabProps) {
   const styleAccentBright = lighten(styleAccent, 0.4)
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
-      {/* Left: colors / dots / timer style / layout */}
+      {/* Timer style spans both columns — 4 cards per row (A–H). */}
+      <div style={{ gridColumn: '1 / -1', marginBottom: 8 }}>
+        <SectionLabel>Timer style</SectionLabel>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: 8,
+          }}
+        >
+          {TIMER_STYLE_META.map((meta) => (
+            <NotchStyleCard
+              key={meta.key}
+              meta={meta}
+              selected={prefs.timerStyle === meta.key}
+              accent={styleAccent}
+              accentBright={styleAccentBright}
+              onClick={() => set({ timerStyle: meta.key })}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Left: colors / dots / layout / placement */}
       <div>
         <div style={{ marginBottom: 22 }}>
           <SectionLabel>Colors</SectionLabel>
@@ -900,22 +925,6 @@ export function PreferencesTab({ prefs, set }: TabProps) {
             onClick={() => set({ showDots: !prefs.showDots })}
             border={false}
           />
-        </div>
-
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>Timer style</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {TIMER_STYLE_META.map((meta) => (
-              <NotchStyleCard
-                key={meta.key}
-                meta={meta}
-                selected={prefs.timerStyle === meta.key}
-                accent={styleAccent}
-                accentBright={styleAccentBright}
-                onClick={() => set({ timerStyle: meta.key })}
-              />
-            ))}
-          </div>
         </div>
 
         <div>
