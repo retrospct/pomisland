@@ -29,11 +29,22 @@ menu bar, the clusters render under the notch and the feature is defeated.
 ## Decision
 
 Raise the snapped island's window level so it can paint over the menu bar on all
-displays. Use the `'status'` band (`NSStatusWindowLevel` = 25, just above the
-menu bar — the same level menu-bar extras use), with the drop overlay kept above
-the island. Keep `snappedTopLeft` anchored at `bounds.y`. The island floats above
-the menu bar **whenever snapped, on every display** (not notch-only), accepting
-that on non-notch displays it covers the center of the real menu bar.
+displays. Use the `'screen-saver'` band (`NSScreenSaverWindowLevel` ≈ 1000) — the
+same level the snap-zone overlay already uses — because it is the only level that
+empirically lets Electron position the window at `y = display.bounds.y` (true
+screen top) without macOS re-clamping it to `workArea.y`. `NSStatusWindowLevel`
+(≈ 25, just above the menu bar) was tried first but macOS Sequoia still clamps
+windows at that level in practice.  `'screen-saver'` is more aggressive but is
+the same approach used for the drop-ghost overlay, and the island is a thin,
+transparent utility widget so covering system alerts is acceptable.
+
+After calling `setAlwaysOnTop(true, 'screen-saver')`, immediately issue a
+`setPosition` call to drive the window to `bounds.y`; macOS may hold the previous
+clamped position until the position is explicitly re-set after the level change.
+
+Keep `snappedTopLeft` anchored at `bounds.y`. The island floats above the menu
+bar **whenever snapped, on every display** (not notch-only), accepting that on
+non-notch displays it covers the center of the real menu bar.
 
 ## Alternatives considered
 
@@ -55,5 +66,6 @@ that on non-notch displays it covers the center of the real menu bar.
   against real `NSScreen` safe-area insets remains follow-up.
 - Fullscreen interplay (auto-hidden menu bar) should be verified; the window
   already uses `setVisibleOnAllWorkspaces(..., { visibleOnFullScreen: true })`.
-- Empirically verify macOS no longer clamps `setBounds`/`setPosition` once the
-  level is elevated (log actual vs requested bounds during a snap).
+- Using `'screen-saver'` level means the island floats above most system UI.
+  Acceptable for a thin, transparent utility widget; revisit if it causes
+  interference with system dialogs on specific macOS versions.

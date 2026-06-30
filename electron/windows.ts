@@ -148,11 +148,21 @@ export function resizeIsland(size: IslandSize): void {
 /**
  * Set the island window level based on the current snapped state.
  *
- * When snapped, use 'status' (NSStatusWindowLevel ≈ 25), which sits above the
- * macOS menu bar (kCGMainMenuWindowLevel ≈ 24) so the island can paint at the
- * true screen top and appear to emerge from the notch — see ADR-0006.
+ * When snapped we use 'screen-saver' (NSScreenSaverWindowLevel ≈ 1000) — the
+ * same level the snap overlay uses — because it is the only confirmed level that
+ * lets Electron actually position the window at y = display.bounds.y (the true
+ * screen top, above the menu bar).  NSStatusWindowLevel (≈ 25, just above the
+ * menu bar) was tried first but macOS Sequoia still clamps windows at that level
+ * to workArea.y in practice.  'screen-saver' is more aggressive but is the same
+ * approach used for the drop-ghost overlay; the island is a thin, transparent
+ * utility widget so covering system alerts is acceptable — see ADR-0006.
+ *
  * When floating/dragging, 'floating' is sufficient (above normal windows, below
- * the menu bar, which is fine since the island isn't at the top edge anyway).
+ * the menu bar — island is not at the top edge during a drag anyway).
+ *
+ * After lifting to 'screen-saver' we explicitly re-snap the position on every
+ * call: macOS may hold the window at workArea.y while at a lower level; setting
+ * the level first unlocks that constraint, then setPosition drives it to y = 0.
  */
 function applyIslandWindowLevel(): void {
   if (!islandWin) return
@@ -161,8 +171,14 @@ function applyIslandWindowLevel(): void {
     islandWin.setAlwaysOnTop(false)
     return
   }
-  const level = placement.snapped ? 'status' : 'floating'
+  const level = placement.snapped ? 'screen-saver' : 'floating'
   islandWin.setAlwaysOnTop(true, level)
+  if (placement.snapped) {
+    const b = islandWin.getBounds()
+    const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
+    const { x, y } = snappedTopLeft(islandSize.width, d)
+    islandWin.setPosition(Math.round(x), Math.round(y))
+  }
 }
 
 export function applyAlwaysOnTop(on: boolean): void {
@@ -172,15 +188,6 @@ export function applyAlwaysOnTop(on: boolean): void {
     return
   }
   applyIslandWindowLevel()
-  // After raising to 'status' level, re-apply the snapped position.
-  // If alwaysOnTop was previously off, macOS may have clamped the window to
-  // workArea.y. The level change lifts that clamp, so we reposition explicitly.
-  if (placement.snapped) {
-    const b = islandWin.getBounds()
-    const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
-    const tl = snappedTopLeft(islandSize.width, d)
-    islandWin.setPosition(tl.x, tl.y)
-  }
 }
 
 export function dragStart(cursorX: number, cursorY: number): void {

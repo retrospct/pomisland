@@ -31,9 +31,8 @@ body.island-body {
 .island-pill {
   transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.island-pill:hover {
-  transform: translateY(-1.5px);
-}
+/* translateY(-1.5px) removed: the pill sits at the top of a tightly-fit
+   transparent window, so any upward movement clips its top edge. */
 
 .island-primary-btn {
   transition: transform 0.16s;
