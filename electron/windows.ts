@@ -90,7 +90,13 @@ export function createIslandWindow(): BrowserWindow {
     },
   })
 
-  if (prefs.alwaysTop) islandWin.setAlwaysOnTop(true, 'floating')
+  applyIslandWindowLevel()
+  // Re-apply bounds after raising the window level.
+  // macOS clamps the initial y to workArea.y when the window is constructed at
+  // a level below the menu bar. Once applyIslandWindowLevel() raises it to
+  // 'status' (above the menu bar) the clamp is lifted, so we explicitly reset
+  // the position to the requested y=0 (bounds.y, not workArea.y).
+  islandWin.setBounds({ x, y, width: islandSize.width, height: islandSize.height })
   islandWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   loadRoute(islandWin, 'index.html')
   islandWin.on('closed', () => {
@@ -139,9 +145,49 @@ export function resizeIsland(size: IslandSize): void {
   islandWin.setBounds({ x, y, width, height })
 }
 
+/**
+ * Set the island window level based on the current snapped state.
+ *
+ * When snapped we use 'screen-saver' (NSScreenSaverWindowLevel ≈ 1000) — the
+ * same level the snap overlay uses — because it is the only confirmed level that
+ * lets Electron actually position the window at y = display.bounds.y (the true
+ * screen top, above the menu bar).  NSStatusWindowLevel (≈ 25, just above the
+ * menu bar) was tried first but macOS Sequoia still clamps windows at that level
+ * to workArea.y in practice.  'screen-saver' is more aggressive but is the same
+ * approach used for the drop-ghost overlay; the island is a thin, transparent
+ * utility widget so covering system alerts is acceptable — see ADR-0006.
+ *
+ * When floating/dragging, 'floating' is sufficient (above normal windows, below
+ * the menu bar — island is not at the top edge during a drag anyway).
+ *
+ * After lifting to 'screen-saver' we explicitly re-snap the position on every
+ * call: macOS may hold the window at workArea.y while at a lower level; setting
+ * the level first unlocks that constraint, then setPosition drives it to y = 0.
+ */
+function applyIslandWindowLevel(): void {
+  if (!islandWin) return
+  const prefs = getPrefs()
+  if (!prefs.alwaysTop) {
+    islandWin.setAlwaysOnTop(false)
+    return
+  }
+  const level = placement.snapped ? 'screen-saver' : 'floating'
+  islandWin.setAlwaysOnTop(true, level)
+  if (placement.snapped) {
+    const b = islandWin.getBounds()
+    const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
+    const { x, y } = snappedTopLeft(islandSize.width, d)
+    islandWin.setPosition(Math.round(x), Math.round(y))
+  }
+}
+
 export function applyAlwaysOnTop(on: boolean): void {
   if (!islandWin) return
-  islandWin.setAlwaysOnTop(on, on ? 'floating' : 'normal')
+  if (!on) {
+    islandWin.setAlwaysOnTop(false)
+    return
+  }
+  applyIslandWindowLevel()
 }
 
 export function dragStart(cursorX: number, cursorY: number): void {
@@ -157,6 +203,7 @@ export function dragStart(cursorX: number, cursorY: number): void {
   }
   placement.dragging = true
   placement.snapped = false
+  applyIslandWindowLevel() // floating while dragging
   broadcastPlacement()
 }
 
@@ -198,6 +245,7 @@ export function dragEnd(): void {
     islandWin.setBounds({ x: tl.x, y: tl.y, width: islandSize.width, height: islandSize.height })
   }
   placement.nearSnap = false
+  applyIslandWindowLevel() // back to 'status' if snapped, 'floating' if not
   broadcastPlacement()
 }
 
@@ -216,9 +264,11 @@ export function createSnapOverlayWindow(): BrowserWindow {
 
   snapOverlayWin = new BrowserWindow({
     width: islandSize.width + OVERLAY_PADDING_X * 2,
-    height: islandSize.height + OVERLAY_PADDING_Y * 2,
+    // No top padding: window sits flush at y=0 (the screen top). Extra height
+    // below lets the glow bleed without being clipped — see SnapOverlayApp.tsx.
+    height: islandSize.height + OVERLAY_PADDING_Y,
     x: x - OVERLAY_PADDING_X,
-    y: y - OVERLAY_PADDING_Y,
+    y,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -271,10 +321,10 @@ function updateSnapOverlay(): void {
   const snap = snappedTopLeft(islandSize.width, d)
 
   const w = islandSize.width + OVERLAY_PADDING_X * 2
-  const h = islandSize.height + OVERLAY_PADDING_Y * 2
+  const h = islandSize.height + OVERLAY_PADDING_Y
   snapOverlayWin.setBounds({
     x: snap.x - OVERLAY_PADDING_X,
-    y: snap.y - OVERLAY_PADDING_Y,
+    y: snap.y, // flush at the screen top — no negative-y offset
     width: w,
     height: h,
   })
