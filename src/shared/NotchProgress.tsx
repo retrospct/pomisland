@@ -80,6 +80,8 @@ export interface NotchProgressProps {
   scale?: number
 }
 
+let cachedLen = 0
+
 export function NotchProgress({
   variant,
   progress,
@@ -95,7 +97,7 @@ export function NotchProgress({
   scale = 1,
 }: NotchProgressProps) {
   const pathRef = useRef<SVGPathElement>(null)
-  const [len, setLen] = useState(0)
+  const [len, setLen] = useState(cachedLen)
   const [front, setFront] = useState({ x: 130, y: 30 })
 
   const isBelow = variant === 'below'
@@ -119,6 +121,7 @@ export function NotchProgress({
     const path = pathRef.current
     if (!path || !drawFullOutline) return
     const l = path.getTotalLength()
+    cachedLen = l
     setLen(l)
     if (isFront) {
       const pt = path.getPointAtLength(l * p)

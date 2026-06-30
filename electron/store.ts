@@ -4,7 +4,9 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { IslandPlacement, IslandSlot, Layout, Prefs, TickSound, TimerStyle } from '../src/shared/types'
+import type { IslandPlacement, IslandSlot, Prefs, TickSound, TimerStyle } from '../src/shared/types'
+
+type Layout = 'split' | 'minimal' | 'compact'
 
 export const DEFAULT_PREFS: Prefs = {
   // General · Timer
@@ -21,6 +23,7 @@ export const DEFAULT_PREFS: Prefs = {
   messages: true,
   hideShare: false,
   pauseIdle: true,
+  showDockIcon: true,
   // Preferences · Alarm & sound
   sound: 'chime',
   volume: 70,
@@ -34,6 +37,8 @@ export const DEFAULT_PREFS: Prefs = {
   // Default: Focus label, countdown, and session dots below the notch; ring hidden.
   islandPlacement: { ring: 'off', status: 'below', time: 'below', dots: 'below' },
   ripple: 'burst',
+  floatingLayout: 'L1',
+  floatingProgress: 'outline',
   // Window behavior (not surfaced in SettingsPanel)
   alwaysTop: true,
   magnetic: true,

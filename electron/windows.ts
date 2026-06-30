@@ -16,7 +16,7 @@ let islandWin: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
 let snapOverlayWin: BrowserWindow | null = null
 
-const placement: Placement = { snapped: true, dragging: false, nearSnap: false }
+const placement: Placement = { snapped: true, dragging: false, nearSnap: false, hasNotch: false, notchHeight: 0 }
 let islandSize: IslandSize = { width: 240, height: 60 }
 
 interface DragCtx {
@@ -40,6 +40,16 @@ function displayAtPoint(x: number, y: number): Display {
 }
 
 /**
+ * Heuristic notch detection: built-in notched displays have a menu bar height
+ * of ~32–38px vs ~24px on external monitors. Threshold of 30px catches all
+ * current MacBook Pro / Air notch models and rejects external monitors.
+ */
+function notchMetrics(d: Display): { hasNotch: boolean; notchHeight: number } {
+  const notchHeight = d.workArea.y - d.bounds.y
+  return { hasNotch: notchHeight >= 30, notchHeight }
+}
+
+/**
  * Top-left origin for snapping the island to the top-center of a display.
  * Anchors at bounds.y (true top edge) so the island overlaps the menubar on
  * both notch and external monitors (MO-11).
@@ -58,6 +68,14 @@ export function getPlacement(): Placement {
 
 /** Reposition snap overlay, then broadcast placement to all renderer windows. */
 function broadcastPlacement(): void {
+  // Refresh notch metrics for the display the island currently sits on.
+  if (islandWin) {
+    const b = islandWin.getBounds()
+    const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
+    const { hasNotch, notchHeight } = notchMetrics(d)
+    placement.hasNotch = hasNotch
+    placement.notchHeight = notchHeight
+  }
   updateSnapOverlay()
   for (const w of BrowserWindow.getAllWindows()) {
     w.webContents.send(IPC.islandPlacement, getPlacement())
@@ -67,6 +85,14 @@ function broadcastPlacement(): void {
 export function createIslandWindow(): BrowserWindow {
   const prefs = getPrefs()
   const { x, y } = snappedTopLeft(islandSize.width)
+
+  // Prime notch metrics for the primary display before the first broadcast.
+  {
+    const d = screen.getPrimaryDisplay()
+    const { hasNotch, notchHeight } = notchMetrics(d)
+    placement.hasNotch = hasNotch
+    placement.notchHeight = notchHeight
+  }
 
   islandWin = new BrowserWindow({
     width: islandSize.width,

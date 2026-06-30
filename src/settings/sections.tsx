@@ -10,6 +10,8 @@ import { SOUND_LABELS, TICK_LABELS, playSound, previewTick } from '@shared/sound
 import { useReducedMotion } from '@shared/useReducedMotion'
 import type {
   AccentKey,
+  FloatingLayout,
+  FloatingProgress,
   IslandElement,
   IslandSlot,
   Prefs,
@@ -298,6 +300,7 @@ const BEHAVIORS: [keyof Prefs, string, string][] = [
   ['messages', 'Motivational messages', 'Show an encouraging line in the expanded panel'],
   ['hideShare', 'Hide during screen sharing', 'Auto-conceal while presenting or recording.'],
   ['pauseIdle', 'Pause when Mac is idle', 'Stop the clock if you step away or lock the screen.'],
+  ['showDockIcon', 'Show app in Dock', 'Display the Pomisland icon in the macOS Dock.'],
 ]
 
 export function GeneralTab({ prefs, set }: TabProps) {
@@ -700,6 +703,16 @@ const SLOT_OPTIONS: { k: IslandSlot; label: string }[] = [
   { k: 'below', label: 'Below' },
   { k: 'right', label: 'Right' },
 ]
+const FLOATING_LAYOUTS: { k: FloatingLayout; label: string }[] = [
+  { k: 'L1', label: 'Focus + Timer + Dots' },
+  { k: 'L2', label: '+ Task name' },
+  { k: 'L3', label: 'Companion' },
+  { k: 'L4', label: 'Badge' },
+]
+const FLOATING_PROGRESS_OPTIONS: { k: FloatingProgress; label: string }[] = [
+  { k: 'outline', label: 'Card outline' },
+  { k: 'ring', label: 'Ring' },
+]
 
 export function PreferencesTab({ prefs, set }: TabProps) {
   // Notch-style previews sit on a dark mini-screen, so use the pastel accent
@@ -823,59 +836,110 @@ export function PreferencesTab({ prefs, set }: TabProps) {
         <div>
           <SectionLabel>Element placement</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            {PLACEMENT_ELEMENTS.map(({ k, label }) => (
-              <div
-                key={k}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                }}
-              >
-                <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--sp-body)' }}>
-                  {label}
-                </span>
+            {PLACEMENT_ELEMENTS
+              .filter(({ k }) => k !== 'ring' || prefs.timerStyle === 'below')
+              .map(({ k, label }) => (
                 <div
+                  key={k}
                   style={{
                     display: 'flex',
-                    gap: 3,
-                    background: 'var(--sp-field)',
-                    border: '1px solid var(--sp-border)',
-                    borderRadius: 11,
-                    padding: 3,
-                    flex: '0 0 auto',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
                   }}
                 >
-                  {SLOT_OPTIONS.map((s) => {
-                    const on = prefs.islandPlacement[k] === s.k
-                    return (
-                      <button
-                        key={s.k}
-                        onClick={() =>
-                          set({ islandPlacement: { ...prefs.islandPlacement, [k]: s.k } })
-                        }
-                        style={{
-                          height: 30,
-                          minWidth: 34,
-                          padding: '0 12px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          borderRadius: 8,
-                          background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
-                          color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)',
-                          fontFamily: SANS,
-                          fontSize: 12.5,
-                          fontWeight: 500,
-                        }}
-                      >
-                        {s.label}
-                      </button>
-                    )
-                  })}
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--sp-body)' }}>
+                    {label}
+                  </span>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 3,
+                      background: 'var(--sp-field)',
+                      border: '1px solid var(--sp-border)',
+                      borderRadius: 11,
+                      padding: 3,
+                      flex: '0 0 auto',
+                    }}
+                  >
+                    {SLOT_OPTIONS.map((s) => {
+                      const on = prefs.islandPlacement[k] === s.k
+                      return (
+                        <button
+                          key={s.k}
+                          onClick={() =>
+                            set({ islandPlacement: { ...prefs.islandPlacement, [k]: s.k } })
+                          }
+                          style={{
+                            height: 30,
+                            minWidth: 34,
+                            padding: '0 12px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            borderRadius: 8,
+                            background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
+                            color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)',
+                            fontFamily: SANS,
+                            fontSize: 12.5,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {s.label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
+              ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 22 }}>
+          <SectionLabel>Floating card</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--sp-body)' }}>Layout</span>
+              <div style={{ display: 'flex', gap: 3, background: 'var(--sp-field)', border: '1px solid var(--sp-border)', borderRadius: 11, padding: 3 }}>
+                {FLOATING_LAYOUTS.map((l) => {
+                  const on = prefs.floatingLayout === l.k
+                  return (
+                    <button
+                      key={l.k}
+                      title={l.label}
+                      onClick={() => set({ floatingLayout: l.k })}
+                      style={{
+                        height: 30, minWidth: 34, padding: '0 10px', border: 'none', cursor: 'pointer',
+                        borderRadius: 8, background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
+                        color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
+                      }}
+                    >
+                      {l.k}
+                    </button>
+                  )
+                })}
               </div>
-            ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--sp-body)' }}>Progress</span>
+              <div style={{ display: 'flex', gap: 3, background: 'var(--sp-field)', border: '1px solid var(--sp-border)', borderRadius: 11, padding: 3 }}>
+                {FLOATING_PROGRESS_OPTIONS.map((p) => {
+                  const on = prefs.floatingProgress === p.k
+                  return (
+                    <button
+                      key={p.k}
+                      onClick={() => set({ floatingProgress: p.k })}
+                      style={{
+                        height: 30, minWidth: 34, padding: '0 12px', border: 'none', cursor: 'pointer',
+                        borderRadius: 8, background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
+                        color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

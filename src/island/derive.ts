@@ -1,7 +1,7 @@
 // View-model derivation for the Island, ported from Island.dc.html renderVals.
 import { accentHex, hexToRgba, resolveAccent } from '@shared/accent'
 import { fmtTime, frac as fracOf } from '@shared/format'
-import type { Prefs, TimerState, TimerStyle } from '@shared/types'
+import type { FloatingLayout, FloatingProgress, Prefs, TimerState, TimerStyle } from '@shared/types'
 import { ISLAND_NEUTRAL } from './palette'
 import { deriveClusters, type IslandClusters } from './placement'
 
@@ -34,6 +34,10 @@ export interface IslandView {
   completedToday: number
   /** Daily goal — shown alongside completedToday as "X/Y" on hover. */
   dailyGoal: number
+  /** Layout variant for the floating card (when not snapped). */
+  floatingLayout: FloatingLayout
+  /** Progress indicator style for the floating card. */
+  floatingProgress: FloatingProgress
 }
 
 export interface DotStyle {
@@ -116,6 +120,13 @@ export function deriveIsland(
     })
   }
 
+  // Fix 7: the circular ring element is only positionable when timerStyle === 'below'.
+  // In all other styles the notch trace IS the progress — ring is redundant and hidden.
+  const placement =
+    prefs.timerStyle === 'below'
+      ? prefs.islandPlacement
+      : { ...prefs.islandPlacement, ring: 'off' as const }
+
   return {
     accent,
     accentBright,
@@ -132,8 +143,10 @@ export function deriveIsland(
     isBreak,
     timerStyle: prefs.timerStyle,
     dots,
-    clusters: deriveClusters(prefs.islandPlacement),
+    clusters: deriveClusters(placement),
     completedToday,
     dailyGoal: prefs.dailyGoal,
+    floatingLayout: prefs.floatingLayout,
+    floatingProgress: prefs.floatingProgress,
   }
 }

@@ -33,6 +33,10 @@ export type IslandSlot = 'off' | 'left' | 'below' | 'right'
 /** Per-element position map. Default: ring off, status/time/dots below. */
 export type IslandPlacement = Record<IslandElement, IslandSlot>
 export type AccentKey = 'teal' | 'clay' | 'blue' | 'violet' | 'rose' | 'green'
+/** Floating-card layout variant when the island is not snapped to the notch. */
+export type FloatingLayout = 'L1' | 'L2' | 'L3' | 'L4'
+/** Progress indicator for the floating card: a circular ring or a card-border outline trace. */
+export type FloatingProgress = 'ring' | 'outline'
 /**
  * Completion alarm voices — synthesized in the renderer via Web Audio (see
  * src/shared/sound.ts and ADR-0005). `chime/bell/marimba/digital` are the clean
@@ -93,6 +97,8 @@ export interface Prefs {
   messages: boolean
   hideShare: boolean
   pauseIdle: boolean
+  /** Show the Pomisland icon in the macOS Dock. */
+  showDockIcon: boolean
   // ---- Preferences · Alarm & sound ----
   sound: Sound
   volume: number
@@ -111,6 +117,10 @@ export interface Prefs {
   islandPlacement: IslandPlacement
   /** Completion ("done") animation. */
   ripple: Ripple
+  /** Floating card layout when the island is dragged off the notch. */
+  floatingLayout: FloatingLayout
+  /** Progress treatment for the floating card. */
+  floatingProgress: FloatingProgress
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----
   alwaysTop: boolean
   magnetic: boolean
@@ -139,6 +149,10 @@ export interface Placement {
   dragging: boolean
   /** True while dragging and close enough to the notch to snap on release. */
   nearSnap: boolean
+  /** True when the current display has a hardware notch (menuBarHeight ≥ 30px). */
+  hasNotch: boolean
+  /** Height (px) of the notch band: workArea.y - bounds.y. 0 on non-notch displays. */
+  notchHeight: number
 }
 
 export interface IslandSize {
