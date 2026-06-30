@@ -464,13 +464,14 @@ function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onT
               position: 'relative',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 13,
+              gap: 14,
               background: 'var(--il-bg)',
               color: 'var(--il-text)',
-              borderRadius: '0 0 22px 22px',
-              padding: '10px 20px 11px',
+              // Wider + shorter to sit closer to the menu-bar / notch proportions.
+              borderRadius: '0 0 16px 16px',
+              padding: '5px 28px 6px',
               cursor: 'pointer',
-              minHeight: 44,
+              minHeight: 32,
               boxSizing: 'border-box',
             }}
           >
@@ -483,7 +484,7 @@ function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onT
                 width={bodyDims.w}
                 height={bodyDims.h}
                 rxTop={0}
-                rxBottom={22}
+                rxBottom={16}
                 variant={view.timerStyle}
                 progress={view.frac}
                 accent={view.accent}
