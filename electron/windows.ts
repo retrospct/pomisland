@@ -164,9 +164,11 @@ export function resizeIsland(size: IslandSize): void {
   } else {
     // Keep the horizontal center and top fixed as content grows/shrinks.
     const prev = islandWin.getBounds()
+    const d = displayAtPoint(prev.x + prev.width / 2, prev.y + prev.height / 2)
     const centerX = prev.x + prev.width / 2
     x = Math.round(centerX - width / 2)
-    y = prev.y
+    // Never let a floating resize push the window back behind the menu bar.
+    y = Math.max(prev.y, d.workArea.y)
   }
   islandWin.setBounds({ x, y, width, height })
 }
@@ -250,9 +252,13 @@ export function dragMove(cursorX: number, cursorY: number): void {
   const b = islandWin.getBounds()
   let x = drag.startX + (cursorX - drag.startCursorX)
   let y = drag.startY + (cursorY - drag.startCursorY)
-  // Clamp within the full display bounds (not workArea) so island can overlap the menubar.
+  // Clamp x within full display bounds; clamp y to workArea so the floating
+  // card can never slide behind the menu bar.  The snap zone (y < SNAP_Y_TOLERANCE)
+  // still triggers because workArea.y (~38) is always < SNAP_Y_TOLERANCE (56),
+  // so dragging back toward the notch correctly shows the snap overlay and
+  // re-snaps on release.
   x = Math.max(d.bounds.x, Math.min(d.bounds.x + d.bounds.width - b.width, x))
-  y = Math.max(d.bounds.y, Math.min(d.bounds.y + d.bounds.height - b.height, y))
+  y = Math.max(d.workArea.y, Math.min(d.bounds.y + d.bounds.height - b.height, y))
   islandWin.setPosition(Math.round(x), Math.round(y))
 
   drag.lastCursorX = cursorX
