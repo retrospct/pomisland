@@ -1,6 +1,7 @@
 import { RIPPLE_DEFS } from '@shared/ripple'
-import type { IslandElement, Ripple, TasksState } from '@shared/types'
+import type { IslandElement, Ripple, TasksState, TimerStyle } from '@shared/types'
 import { useReducedMotion } from '@shared/useReducedMotion'
+import { renderProgressTrace } from '@shared/progressTrace'
 import type { CSSProperties } from 'react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { IslandView } from './derive'
@@ -391,26 +392,117 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
   )
 }
 
-// ── CardOutline — pill-border progress trace (Fix 6) ────────────────────────
+// ── CardOutline — variant-aware pill-border progress trace (Fix 6) ──────────
 // Module-level cache avoids the dashoffset flash on remount (same pattern as
-// NotchProgress.tsx cachedLen).
+// NotchProgress.tsx cachedLen). Uses rounded-rect path geometry so all 8
+// TimerStyle treatments work (via renderProgressTrace from progressTrace.tsx).
 let cachedCardLen = 0
 
-function CardOutline({
-  width,
-  height,
-  rx,
-  progress,
-  accent,
-}: {
+/** Build a closed rounded-rect perimeter path starting at top-center, going clockwise. */
+function cardPath(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} 0`,
+    `L ${W - rT} 0`,
+    `Q ${W} 0 ${W} ${rT}`,
+    `L ${W} ${H - rB}`,
+    `Q ${W} ${H} ${W - rB} ${H}`,
+    `L ${W / 2} ${H}`,
+    // continue full path for measurement — left side back to top-center
+    `L ${rB} ${H}`,
+    `Q 0 ${H} 0 ${H - rB}`,
+    `L 0 ${rT}`,
+    `Q 0 0 ${rT} 0`,
+    `L ${W / 2} 0`,
+    `Z`,
+  ].join(' ')
+}
+
+/** Left converge path: from top-center counterclockwise to bottom-center. */
+function cardLeftConverge(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} 0`,
+    `L ${rT} 0`,
+    `Q 0 0 0 ${rT}`,
+    `L 0 ${H - rB}`,
+    `Q 0 ${H} ${rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Right converge path: from top-center clockwise to bottom-center. */
+function cardRightConverge(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} 0`,
+    `L ${W - rT} 0`,
+    `Q ${W} 0 ${W} ${rT}`,
+    `L ${W} ${H - rB}`,
+    `Q ${W} ${H} ${W - rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Left split path: from bottom-center counterclockwise to top-center (reverse of left converge). */
+function cardLeftSplit(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${rB} ${H}`,
+    `Q 0 ${H} 0 ${H - rB}`,
+    `L 0 ${rT}`,
+    `Q 0 0 ${rT} 0`,
+    `L ${W / 2} 0`,
+  ].join(' ')
+}
+
+/** Right split path: from bottom-center clockwise to top-center (reverse of right converge). */
+function cardRightSplit(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${W - rB} ${H}`,
+    `Q ${W} ${H} ${W} ${H - rB}`,
+    `L ${W} ${rT}`,
+    `Q ${W} 0 ${W - rT} 0`,
+    `L ${W / 2} 0`,
+  ].join(' ')
+}
+
+interface CardOutlineProps {
   width: number
   height: number
-  rx: number
+  /** Top corner radius (0 = square, ~999 = pill). */
+  rxTop: number
+  /** Bottom corner radius. */
+  rxBottom: number
+  variant: TimerStyle
   progress: number
   accent: string
-}) {
-  const pathRef = useRef<SVGRectElement>(null)
+  accentBright: string
+}
+
+function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, accent, accentBright }: CardOutlineProps) {
+  const pathRef = useRef<SVGPathElement>(null)
   const [len, setLen] = useState(cachedCardLen)
+  const [front, setFront] = useState({ x: W / 2, y: 0 })
+
+  const clampedP = Math.min(1, Math.max(0, progress))
+  const isSplit = variant === 'split'
+
+  const fullPath = cardPath(W, H, rxTop, rxBottom)
+  const leftPath = isSplit
+    ? cardLeftSplit(W, H, rxTop, rxBottom)
+    : cardLeftConverge(W, H, rxTop, rxBottom)
+  const rightPath = isSplit
+    ? cardRightSplit(W, H, rxTop, rxBottom)
+    : cardRightConverge(W, H, rxTop, rxBottom)
 
   useLayoutEffect(() => {
     const el = pathRef.current
@@ -418,34 +510,39 @@ function CardOutline({
     const l = el.getTotalLength()
     cachedCardLen = l
     setLen(l)
-  }, [width, height, rx])
-
-  const p = Math.min(1, Math.max(0, progress))
-  const dashArray = len ? len.toFixed(2) : '1000'
-  const dashOffset = len ? (len * (1 - p)).toFixed(2) : '1000'
+    if (variant === 'front' && l > 0) {
+      const pt = el.getPointAtLength(l * clampedP)
+      setFront({ x: +pt.x.toFixed(2), y: +pt.y.toFixed(2) })
+    }
+  }, [W, H, rxTop, rxBottom, variant, clampedP])
 
   return (
     <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
     >
-      <rect
-        ref={pathRef}
-        x={1}
-        y={1}
-        width={width - 2}
-        height={height - 2}
-        rx={rx - 1}
-        fill="none"
-        stroke={accent}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeDasharray={dashArray}
-        strokeDashoffset={dashOffset}
-        className="nc-progress-stroke"
-      />
+      {renderProgressTrace({
+        variant,
+        p: clampedP,
+        accent,
+        accentBright,
+        fullPath,
+        leftPath,
+        rightPath,
+        meetPoint: { x: W / 2, y: H },
+        len,
+        front,
+        pathRef,
+        underlightEllipses:
+          variant === 'underlight'
+            ? [
+                { cx: W / 2, cy: H, rx: W * 0.32, ry: H * 0.2, fill: accent, delay: undefined },
+                { cx: W / 2, cy: H, rx: W * 0.22, ry: H * 0.13, fill: accentBright, opacity: 0.55, delay: '0.25s' },
+              ]
+            : undefined,
+      })}
     </svg>
   )
 }
@@ -506,6 +603,74 @@ function TimerPet({
   )
 }
 
+// ── L3Card — Companion layout with optional CardOutline (Fix 6) ─────────────
+function L3Card({
+  view,
+  onToggleExpand,
+  isRing,
+  rx,
+}: {
+  view: IslandView
+  onToggleExpand: () => void
+  isRing: boolean
+  rx: number
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    setDims({ w: Math.round(width), h: Math.round(height) })
+  })
+  return (
+    <div
+      ref={cardRef}
+      data-island="1"
+      onClick={onToggleExpand}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 12,
+        background: 'var(--il-bg)',
+        color: 'var(--il-text)',
+        borderRadius: rx,
+        padding: '10px 16px 10px 12px',
+        cursor: 'pointer',
+      }}
+    >
+      <TimerPet
+        isRunning={view.isRunning}
+        isBreak={view.isBreak}
+        isComplete={view.isComplete}
+        accent={view.accent}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: view.accent, fontWeight: 500 }}>
+          {view.statusLabel}
+        </span>
+        <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+          {view.timeStr}
+        </span>
+      </div>
+      {view.dots.length > 0 && <SessionDots dots={view.dots} />}
+      {!isRing && dims.w > 0 && (
+        <CardOutline
+          width={dims.w}
+          height={dims.h}
+          rxTop={rx}
+          rxBottom={rx}
+          variant={view.timerStyle}
+          progress={view.frac}
+          accent={view.accent}
+          accentBright={view.accentBright}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── FloatingCard — floating island layouts L1–L4 (Fix 6) ────────────────────
 function FloatingCard({
   view,
@@ -523,8 +688,9 @@ function FloatingCard({
   const { left, below, right } = view.clusters
 
   if (layout === 'L4') {
-    // Badge: near-square card with ring border overlay
+    // Badge: near-square card. Ring border when isRing, CardOutline otherwise.
     const sz = 100
+    const rx4 = 24
     const ringR = 44
     const ringCirc = 2 * Math.PI * ringR
     const ringOffset = (ringCirc * (1 - Math.min(1, view.frac))).toFixed(2)
@@ -537,7 +703,7 @@ function FloatingCard({
           width: sz,
           height: sz,
           background: 'var(--il-bg)',
-          borderRadius: 24,
+          borderRadius: rx4,
           cursor: 'pointer',
           display: 'flex',
           flexDirection: 'column',
@@ -547,26 +713,39 @@ function FloatingCard({
           color: 'var(--il-text)',
         }}
       >
-        <svg
-          width={sz}
-          height={sz}
-          viewBox={`0 0 ${sz} ${sz}`}
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transform: 'rotate(-90deg)' }}
-        >
-          <circle cx={50} cy={50} r={ringR} fill="none" stroke="var(--il-track)" strokeWidth={3} />
-          <circle
-            cx={50}
-            cy={50}
-            r={ringR}
-            fill="none"
-            stroke={view.accent}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeDasharray={ringCirc.toFixed(2)}
-            strokeDashoffset={ringOffset}
-            className="nc-progress-stroke"
+        {isRing ? (
+          <svg
+            width={sz}
+            height={sz}
+            viewBox={`0 0 ${sz} ${sz}`}
+            style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transform: 'rotate(-90deg)' }}
+          >
+            <circle cx={50} cy={50} r={ringR} fill="none" stroke="var(--il-track)" strokeWidth={3} />
+            <circle
+              cx={50}
+              cy={50}
+              r={ringR}
+              fill="none"
+              stroke={view.accent}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeDasharray={ringCirc.toFixed(2)}
+              strokeDashoffset={ringOffset}
+              className="nc-progress-stroke"
+            />
+          </svg>
+        ) : (
+          <CardOutline
+            width={sz}
+            height={sz}
+            rxTop={rx4}
+            rxBottom={rx4}
+            variant={view.timerStyle}
+            progress={view.frac}
+            accent={view.accent}
+            accentBright={view.accentBright}
           />
-        </svg>
+        )}
         <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: view.accent, fontWeight: 500 }}>
           {view.statusLabel}
         </span>
@@ -579,39 +758,16 @@ function FloatingCard({
   }
 
   if (layout === 'L3') {
-    // Companion: pet | focus+timer stacked | dots
+    // Companion: pet | focus+timer stacked | dots.
+    // Wrap with CardOutline when !isRing.
+    const rx3 = 24
     return (
-      <div
-        data-island="1"
-        onClick={onToggleExpand}
-        style={{
-          position: 'relative',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 12,
-          background: 'var(--il-bg)',
-          color: 'var(--il-text)',
-          borderRadius: 24,
-          padding: '10px 16px 10px 12px',
-          cursor: 'pointer',
-        }}
-      >
-        <TimerPet
-          isRunning={view.isRunning}
-          isBreak={view.isBreak}
-          isComplete={view.isComplete}
-          accent={view.accent}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: view.accent, fontWeight: 500 }}>
-            {view.statusLabel}
-          </span>
-          <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
-            {view.timeStr}
-          </span>
-        </div>
-        {view.dots.length > 0 && <SessionDots dots={view.dots} />}
-      </div>
+      <L3Card
+        view={view}
+        onToggleExpand={onToggleExpand}
+        isRing={isRing}
+        rx={rx3}
+      />
     )
   }
 
@@ -743,7 +899,16 @@ function OutlinedCard({
         </span>
       )}
       {dims.w > 0 && (
-        <CardOutline width={dims.w} height={dims.h} rx={rx} progress={view.frac} accent={view.accent} />
+        <CardOutline
+          width={dims.w}
+          height={dims.h}
+          rxTop={rx}
+          rxBottom={rx}
+          variant={view.timerStyle}
+          progress={view.frac}
+          accent={view.accent}
+          accentBright={view.accentBright}
+        />
       )}
     </div>
   )
