@@ -142,7 +142,8 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
     const el = bodyRef.current
     if (!el) return
     const { width, height } = el.getBoundingClientRect()
-    setBodyDims({ w: Math.round(width), h: Math.round(height) })
+    const w = Math.round(width), h = Math.round(height)
+    setBodyDims(prev => (prev.w === w && prev.h === h) ? prev : { w, h })
   })
 
   useEffect(() => {
@@ -650,7 +651,8 @@ function L3Card({
     const el = cardRef.current
     if (!el) return
     const { width, height } = el.getBoundingClientRect()
-    setDims({ w: Math.round(width), h: Math.round(height) })
+    const w = Math.round(width), h = Math.round(height)
+    setDims(prev => (prev.w === w && prev.h === h) ? prev : { w, h })
   })
   return (
     <div
@@ -896,7 +898,8 @@ function OutlinedCard({
     const el = cardRef.current
     if (!el) return
     const { width, height } = el.getBoundingClientRect()
-    setDims({ w: Math.round(width), h: Math.round(height) })
+    const w = Math.round(width), h = Math.round(height)
+    setDims(prev => (prev.w === w && prev.h === h) ? prev : { w, h })
   })
   const rx = 999 // pill shape
   return (
