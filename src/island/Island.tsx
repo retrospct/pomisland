@@ -519,7 +519,7 @@ function FloatingCard({
   renderElement: (key: IslandElement) => React.ReactNode
 }) {
   const layout = view.floatingLayout
-  const progress = view.floatingProgress
+  const isRing = view.timerStyle === 'below'
   const { left, below, right } = view.clusters
 
   if (layout === 'L4') {
@@ -628,7 +628,7 @@ function FloatingCard({
   const cardPad = { paddingTop: 8, paddingBottom: showTask ? 10 : 9, paddingLeft: 10, paddingRight: 20 }
   const cardH = showTask ? undefined : 44
 
-  if (progress === 'ring') {
+  if (isRing) {
     // Ring on the left, then content
     const rSz = 28, rR = 10
     const rCirc = 2 * Math.PI * rR
@@ -670,7 +670,7 @@ function FloatingCard({
     )
   }
 
-  // progress === 'outline': CardOutline wrapping the content row
+  // !isRing: CardOutline wrapping the content row
   // We need to know the card dimensions for the outline. Use a ref-measured approach;
   // start with a generous width estimate and let the outline measure itself.
   return (
