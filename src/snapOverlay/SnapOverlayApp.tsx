@@ -27,6 +27,8 @@ export function SnapOverlayApp() {
     nearSnap: false,
     hasNotch: false,
     notchHeight: 0,
+    notchWidth: 0,
+    notchCenterX: 0,
   })
   const [accent, setAccent] = useState<string>('#8FC8C0')
 

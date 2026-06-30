@@ -3,6 +3,7 @@ import type { Display } from 'electron'
 import { join } from 'node:path'
 import type { IslandSize, Placement } from '../src/shared/types'
 import { IPC } from '../src/shared/types'
+import { getNotchMetrics } from './notch'
 import { getPrefs } from './store'
 
 const RENDERER_URL = process.env['ELECTRON_RENDERER_URL']
@@ -16,7 +17,15 @@ let islandWin: BrowserWindow | null = null
 let settingsWin: BrowserWindow | null = null
 let snapOverlayWin: BrowserWindow | null = null
 
-const placement: Placement = { snapped: true, dragging: false, nearSnap: false, hasNotch: false, notchHeight: 0 }
+const placement: Placement = {
+  snapped: true,
+  dragging: false,
+  nearSnap: false,
+  hasNotch: false,
+  notchHeight: 0,
+  notchWidth: 0,
+  notchCenterX: 0,
+}
 let islandSize: IslandSize = { width: 240, height: 60 }
 
 interface DragCtx {
@@ -40,19 +49,10 @@ function displayAtPoint(x: number, y: number): Display {
 }
 
 /**
- * Heuristic notch detection: built-in notched displays have a menu bar height
- * of ~32–38px vs ~24px on external monitors. Threshold of 30px catches all
- * current MacBook Pro / Air notch models and rejects external monitors.
- */
-function notchMetrics(d: Display): { hasNotch: boolean; notchHeight: number } {
-  const notchHeight = d.workArea.y - d.bounds.y
-  return { hasNotch: notchHeight >= 30, notchHeight }
-}
-
-/**
  * Top-left origin for snapping the island to the top-center of a display.
- * Anchors at bounds.y (true top edge) so the island overlaps the menubar on
- * both notch and external monitors (MO-11).
+ * Always anchors at bounds.y (the true screen top) so the island reaches the
+ * physical notch. The renderer decides the visual treatment (notch-wrap vs
+ * floating dock) based on hasNotch from the placement broadcast.
  */
 function snappedTopLeft(width: number, display?: Display): { x: number; y: number } {
   const d = display ?? screen.getPrimaryDisplay()
@@ -72,9 +72,11 @@ function broadcastPlacement(): void {
   if (islandWin) {
     const b = islandWin.getBounds()
     const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
-    const { hasNotch, notchHeight } = notchMetrics(d)
-    placement.hasNotch = hasNotch
-    placement.notchHeight = notchHeight
+    const m = getNotchMetrics(d)
+    placement.hasNotch = m.hasNotch
+    placement.notchHeight = m.notchHeight
+    placement.notchWidth = m.notchWidth
+    placement.notchCenterX = m.notchCenterX
   }
   updateSnapOverlay()
   for (const w of BrowserWindow.getAllWindows()) {
@@ -89,9 +91,11 @@ export function createIslandWindow(): BrowserWindow {
   // Prime notch metrics for the primary display before the first broadcast.
   {
     const d = screen.getPrimaryDisplay()
-    const { hasNotch, notchHeight } = notchMetrics(d)
-    placement.hasNotch = hasNotch
-    placement.notchHeight = notchHeight
+    const m = getNotchMetrics(d)
+    placement.hasNotch = m.hasNotch
+    placement.notchHeight = m.notchHeight
+    placement.notchWidth = m.notchWidth
+    placement.notchCenterX = m.notchCenterX
   }
 
   islandWin = new BrowserWindow({
@@ -123,14 +127,12 @@ export function createIslandWindow(): BrowserWindow {
     },
   })
 
-  applyIslandWindowLevel()
-  // Re-apply bounds after raising the window level.
-  // macOS clamps the initial y to workArea.y when the window is constructed at
-  // a level below the menu bar. Once applyIslandWindowLevel() raises it to
-  // 'status' (above the menu bar) the clamp is lifted, so we explicitly reset
-  // the position to the requested y=0 (bounds.y, not workArea.y).
   islandWin.setBounds({ x, y, width: islandSize.width, height: islandSize.height })
   islandWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // Raise to screen-saver level and drive the position to y=0 LAST. macOS clamps
+  // setBounds to workArea.y (below the menu bar); only setPosition at the raised
+  // level reaches the true screen top, so it must be the final positioning op.
+  applyIslandWindowLevel()
   loadRoute(islandWin, 'index.html')
   islandWin.on('closed', () => {
     islandWin = null
@@ -160,24 +162,24 @@ export function resizeIsland(size: IslandSize): void {
   const height = Math.max(28, Math.ceil(size.height))
   islandSize = { width, height }
 
-  let x: number
-  let y: number
   if (placement.snapped) {
     const b = islandWin.getBounds()
     const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
     const tl = snappedTopLeft(width, d)
-    x = tl.x
-    y = tl.y
+    // Size via setBounds, then re-assert level + y=0 via setPosition (setBounds
+    // re-clamps below the menu bar; applyIslandWindowLevel's setPosition reaches y=0).
+    islandWin.setBounds({ x: tl.x, y: tl.y, width, height })
+    applyIslandWindowLevel()
   } else {
     // Keep the horizontal center and top fixed as content grows/shrinks.
     const prev = islandWin.getBounds()
     const d = displayAtPoint(prev.x + prev.width / 2, prev.y + prev.height / 2)
     const centerX = prev.x + prev.width / 2
-    x = Math.round(centerX - width / 2)
+    const x = Math.round(centerX - width / 2)
     // Never let a floating resize push the window back behind the menu bar.
-    y = Math.max(prev.y, d.workArea.y)
+    const y = Math.max(prev.y, d.workArea.y)
+    islandWin.setBounds({ x, y, width, height })
   }
-  islandWin.setBounds({ x, y, width, height })
 }
 
 /**
@@ -201,27 +203,32 @@ export function resizeIsland(size: IslandSize): void {
  */
 function applyIslandWindowLevel(): void {
   if (!islandWin) return
-  const prefs = getPrefs()
-  if (!prefs.alwaysTop) {
-    islandWin.setAlwaysOnTop(false)
-    return
-  }
-  const level = placement.snapped ? 'screen-saver' : 'floating'
-  islandWin.setAlwaysOnTop(true, level)
+  // Snapped: the window must clear the menu bar to reach y=0 at the notch, which
+  // requires a high window level — do this regardless of the alwaysTop pref. Then
+  // drive the position with setPosition: macOS clamps setBounds to workArea.y, but
+  // setPosition at this level reaches the true screen top. This must run AFTER any
+  // setBounds (which re-clamps), so callers invoke it as the final positioning op.
   if (placement.snapped) {
+    islandWin.setAlwaysOnTop(true, 'screen-saver')
     const b = islandWin.getBounds()
     const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
     const { x, y } = snappedTopLeft(islandSize.width, d)
     islandWin.setPosition(Math.round(x), Math.round(y))
+    return
+  }
+  // Floating/dragging: respect the alwaysTop pref ('floating' is below the menu
+  // bar, which is fine since the island isn't at the top edge while floating).
+  if (getPrefs().alwaysTop) {
+    islandWin.setAlwaysOnTop(true, 'floating')
+  } else {
+    islandWin.setAlwaysOnTop(false)
   }
 }
 
-export function applyAlwaysOnTop(on: boolean): void {
+export function applyAlwaysOnTop(_on: boolean): void {
   if (!islandWin) return
-  if (!on) {
-    islandWin.setAlwaysOnTop(false)
-    return
-  }
+  // Delegate to applyIslandWindowLevel so a snapped island stays above the menu
+  // bar even when alwaysTop is off (snapping to the notch requires the high level).
   applyIslandWindowLevel()
 }
 

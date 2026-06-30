@@ -42,6 +42,8 @@ interface IslandProps extends Handlers {
   hasNotch: boolean
   /** Height (px) of the notch band: workArea.y - bounds.y. */
   notchHeight: number
+  /** Notch width (px) used to size the wrap spacer; 0 on non-notch displays. */
+  notchWidth: number
   ripple: Ripple
   messagesOn: boolean
   tasks: TasksState | null
@@ -120,6 +122,12 @@ export function Island(props: IslandProps) {
 // each edge. 180 gives that full extent plus a comfortable margin for any accent glow.
 const FX_PAD = 180
 
+// Always-on transparent bleed (px) beside + below the snapped body so the running
+// progress trace's blur halo (glow ~3.5px, comet, the front dot r7+blur, and the
+// underlight ellipses' blur(10) at the bottom) isn't clipped by the tight window
+// bounds. Smaller than FX_PAD since the trace halo is far smaller than a ripple.
+const TRACE_BLEED = 22
+
 // MO-20: completion fx tracks enter/exit phase to animate in and out.
 // MO-30: outer wrapper grows by FX_PAD when FX fires so the window is large enough to
 //        show the full ring expansion without clipping.
@@ -128,7 +136,7 @@ const FX_PAD = 180
 // Approximate MacBook notch width; calibrate against real hardware later.
 const NOTCH_GAP = 200
 
-function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand }: IslandProps) {
+function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onToggleExpand }: IslandProps) {
   const rm = useReducedMotion()
 
   const [fxPhase, setFxPhase] = useState<'enter' | 'exit' | 'none'>('none')
@@ -251,25 +259,38 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
   }
 
   const fxActive = fxPhase !== 'none'
-  const fxBorderRadius: CSSProperties['borderRadius'] = notch ? '0 0 20px 20px' : 999
+  // Both snapped bodies square the top so they hang flush from the screen's top
+  // edge — the real-notch wrap meets the camera housing, the non-notch dock
+  // mimics a notch. Only the floating (un-snapped) card is fully rounded.
+  const wrapNotch = notch && hasNotch
+  const fxBorderRadius: CSSProperties['borderRadius'] = notch
+    ? wrapNotch
+      ? '0 0 20px 20px'
+      : '0 0 22px 22px'
+    : 999
 
   if (notch) {
-    // ── Snapped unified body: hangs from the real notch (Fix 8) ──────────────
-    // One dark body div with squared top corners (meets the physical notch) and
-    // rounded bottom. Left/right elements are bare (no pill), below content sits
-    // flush under the notch spacer. No mock notch drawn — real hardware shows through.
     const belowVisible = belowKeys.filter(hasContent)
     const leftVisible = leftKeys.filter(hasContent)
     const rightVisible = rightKeys.filter(hasContent)
+
+    // Effective notch width — provider estimate, falling back to the legacy
+    // constant if metrics haven't arrived yet.
+    const spacerW = notchWidth > 0 ? notchWidth : NOTCH_GAP
+
+    // Transparent bleed beside + below the body (never above — the top stays
+    // flush at y=0) so the progress trace's blur/comet/front-dot halo isn't
+    // clipped by the tight window bounds. Completion FX uses the larger FX_PAD.
+    const traceBleed = view.timerStyle !== 'below' ? TRACE_BLEED : 0
 
     return (
       <div
         style={{
           position: 'relative',
           display: 'inline-flex',
-          paddingLeft: fxActive ? FX_PAD : undefined,
-          paddingRight: fxActive ? FX_PAD : undefined,
-          paddingBottom: fxActive ? FX_PAD : undefined,
+          paddingLeft: fxActive ? FX_PAD : traceBleed,
+          paddingRight: fxActive ? FX_PAD : traceBleed,
+          paddingBottom: fxActive ? FX_PAD : traceBleed,
         }}
       >
         {fxActive && (
@@ -292,96 +313,134 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
             />
           </div>
         )}
-        <div
-          ref={bodyRef}
-          data-island="1"
-          onClick={onToggleExpand}
-          style={{
-            position: 'relative',
-            display: 'inline-grid',
-            gridTemplateColumns: 'auto auto auto',
-            alignItems: 'center',
-            background: 'var(--il-bg)',
-            color: 'var(--il-text)',
-            borderRadius: '0 0 20px 20px',
-            cursor: 'pointer',
-          }}
-        >
-          {/* Left column — bare elements flanking the notch */}
+        {hasNotch ? (
+          // ── Snapped unified body: wraps the real notch (Fix 8) ───────────────
+          // One dark body div with squared top corners (meets the physical notch)
+          // and rounded bottom. Left/right elements flank the notch; below content
+          // sits flush under the notch spacer (sized to the real notch width). No
+          // mock notch drawn — real hardware shows through the transparent center.
           <div
+            ref={bodyRef}
+            data-island="1"
+            onClick={onToggleExpand}
             style={{
-              alignSelf: 'center',
-              padding: '0 10px 0 14px',
-              display: 'flex',
+              position: 'relative',
+              display: 'inline-grid',
+              gridTemplateColumns: 'auto auto auto',
               alignItems: 'center',
-              gap: 13,
+              background: 'var(--il-bg)',
+              color: 'var(--il-text)',
+              borderRadius: '0 0 20px 20px',
+              cursor: 'pointer',
             }}
           >
-            {leftVisible.map(renderElement)}
-          </div>
+            {/* Left column — bare elements flanking the notch */}
+            <div
+              style={{
+                alignSelf: 'center',
+                padding: '0 10px 0 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 13,
+              }}
+            >
+              {leftVisible.map(renderElement)}
+            </div>
 
-          {/* Center column — transparent notch spacer + below content */}
-          <div
-            style={{
-              minWidth: NOTCH_GAP,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            {hasNotch && (
-              <div
-                aria-hidden
-                style={{ height: notchHeight, minWidth: NOTCH_GAP, flexShrink: 0 }}
+            {/* Center column — transparent notch spacer + below content */}
+            <div
+              style={{
+                minWidth: spacerW,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <div aria-hidden style={{ height: notchHeight, minWidth: spacerW, flexShrink: 0 }} />
+              {belowVisible.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 13,
+                    padding: '8px 20px 12px',
+                  }}
+                >
+                  {belowVisible.map(renderElement)}
+                </div>
+              )}
+            </div>
+
+            {/* Right column — bare elements flanking the notch */}
+            <div
+              style={{
+                alignSelf: 'center',
+                padding: '0 14px 0 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 13,
+              }}
+            >
+              {rightVisible.map(renderElement)}
+            </div>
+
+            {/* CardOutline overlay — variant-aware progress trace for non-'below' styles.
+                flushTop: the squared top meets the notch, so the trace skips the top edge. */}
+            {view.timerStyle !== 'below' && bodyDims.w > 0 && (
+              <CardOutline
+                width={bodyDims.w}
+                height={bodyDims.h}
+                rxTop={0}
+                rxBottom={20}
+                variant={view.timerStyle}
+                progress={view.frac}
+                accent={view.accent}
+                accentBright={view.accentBright}
+                flushTop
               />
             )}
-            {belowVisible.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 13,
-                  padding: '8px 20px 12px',
-                }}
-              >
-                {belowVisible.map(renderElement)}
-              </div>
-            )}
-            {belowVisible.length === 0 && !hasNotch && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
-                {renderElement('status')}
-                {renderElement('time')}
-              </div>
-            )}
           </div>
-
-          {/* Right column — bare elements flanking the notch */}
+        ) : (
+          // ── Snapped on a non-notch display: faux-notch dock ─────────────────
+          // No physical notch, so mimic one: a single-row body with a flat top
+          // (squared corners) flush against the screen's top edge and a rounded
+          // bottom, hung from y=0 by the main process. All elements sit in one row.
           <div
+            ref={bodyRef}
+            data-island="1"
+            onClick={onToggleExpand}
             style={{
-              alignSelf: 'center',
-              padding: '0 14px 0 10px',
-              display: 'flex',
+              position: 'relative',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: 13,
+              background: 'var(--il-bg)',
+              color: 'var(--il-text)',
+              borderRadius: '0 0 22px 22px',
+              padding: '10px 20px 11px',
+              cursor: 'pointer',
+              minHeight: 44,
+              boxSizing: 'border-box',
             }}
           >
-            {rightVisible.map(renderElement)}
+            {[...leftVisible, ...belowVisible, ...rightVisible].map(renderElement)}
+            {/* flushTop: the dock's squared top is flush with the screen edge,
+                so the trace skips the top edge (same rule as the real notch). */}
+            {view.timerStyle !== 'below' && bodyDims.w > 0 && (
+              <CardOutline
+                width={bodyDims.w}
+                height={bodyDims.h}
+                rxTop={0}
+                rxBottom={22}
+                variant={view.timerStyle}
+                progress={view.frac}
+                accent={view.accent}
+                accentBright={view.accentBright}
+                flushTop
+              />
+            )}
           </div>
-
-          {/* CardOutline overlay — variant-aware progress trace for non-'below' styles */}
-          {view.timerStyle !== 'below' && bodyDims.w > 0 && (
-            <CardOutline
-              width={bodyDims.w}
-              height={bodyDims.h}
-              rxTop={0}
-              rxBottom={20}
-              variant={view.timerStyle}
-              progress={view.frac}
-              accent={view.accent}
-              accentBright={view.accentBright}
-            />
-          )}
-        </div>
+        )}
       </div>
     )
   }
@@ -505,6 +564,80 @@ function cardRightSplit(W: number, H: number, rxT: number, rxB: number): string 
   ].join(' ')
 }
 
+// ── Topless variants ────────────────────────────────────────────────────────
+// When the body is snapped flush against the screen's top edge (real-notch wrap
+// or non-notch dock), the top edge sits against the bezel/notch surface and must
+// NOT carry the progress trace. These mirror the functions above with the top
+// edge omitted, so the stroke starts/ends at the two top corners.
+
+/** Open perimeter minus the top edge: top-left corner → left → bottom → right → top-right corner. */
+function cardPathTopless(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${rT} 0`,
+    `Q 0 0 0 ${rT}`,
+    `L 0 ${H - rB}`,
+    `Q 0 ${H} ${rB} ${H}`,
+    `L ${W - rB} ${H}`,
+    `Q ${W} ${H} ${W} ${H - rB}`,
+    `L ${W} ${rT}`,
+    `Q ${W} 0 ${W - rT} 0`,
+  ].join(' ')
+}
+
+/** Left converge, topless: top-left corner → left → bottom-center (no top edge). */
+function cardLeftConvergeTopless(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${rT} 0`,
+    `Q 0 0 0 ${rT}`,
+    `L 0 ${H - rB}`,
+    `Q 0 ${H} ${rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Right converge, topless: top-right corner → right → bottom-center (no top edge). */
+function cardRightConvergeTopless(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W - rT} 0`,
+    `Q ${W} 0 ${W} ${rT}`,
+    `L ${W} ${H - rB}`,
+    `Q ${W} ${H} ${W - rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Left split, topless: bottom-center → left → top-left corner (no top edge). */
+function cardLeftSplitTopless(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${rB} ${H}`,
+    `Q 0 ${H} 0 ${H - rB}`,
+    `L 0 ${rT}`,
+    `Q 0 0 ${rT} 0`,
+  ].join(' ')
+}
+
+/** Right split, topless: bottom-center → right → top-right corner (no top edge). */
+function cardRightSplitTopless(W: number, H: number, rxT: number, rxB: number): string {
+  const rT = Math.min(rxT, W / 2, H / 2)
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${W - rB} ${H}`,
+    `Q ${W} ${H} ${W} ${H - rB}`,
+    `L ${W} ${rT}`,
+    `Q ${W} 0 ${W - rT} 0`,
+  ].join(' ')
+}
+
 interface CardOutlineProps {
   width: number
   height: number
@@ -516,9 +649,15 @@ interface CardOutlineProps {
   progress: number
   accent: string
   accentBright: string
+  /**
+   * When true the body's top edge is flush against the screen's top edge (snapped
+   * notch-wrap / dock), so the trace omits that edge and starts/ends at the top
+   * corners. Floating cards (free on all sides) leave this false for a full loop.
+   */
+  flushTop?: boolean
 }
 
-function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, accent, accentBright }: CardOutlineProps) {
+function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, accent, accentBright, flushTop = false }: CardOutlineProps) {
   const pathRef = useRef<SVGPathElement>(null)
   const [len, setLen] = useState(cachedCardLen)
   const [front, setFront] = useState({ x: W / 2, y: 0 })
@@ -526,13 +665,23 @@ function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, 
   const clampedP = Math.min(1, Math.max(0, progress))
   const isSplit = variant === 'split'
 
-  const fullPath = cardPath(W, H, rxTop, rxBottom)
-  const leftPath = isSplit
-    ? cardLeftSplit(W, H, rxTop, rxBottom)
-    : cardLeftConverge(W, H, rxTop, rxBottom)
-  const rightPath = isSplit
-    ? cardRightSplit(W, H, rxTop, rxBottom)
-    : cardRightConverge(W, H, rxTop, rxBottom)
+  const fullPath = flushTop
+    ? cardPathTopless(W, H, rxTop, rxBottom)
+    : cardPath(W, H, rxTop, rxBottom)
+  const leftPath = flushTop
+    ? isSplit
+      ? cardLeftSplitTopless(W, H, rxTop, rxBottom)
+      : cardLeftConvergeTopless(W, H, rxTop, rxBottom)
+    : isSplit
+      ? cardLeftSplit(W, H, rxTop, rxBottom)
+      : cardLeftConverge(W, H, rxTop, rxBottom)
+  const rightPath = flushTop
+    ? isSplit
+      ? cardRightSplitTopless(W, H, rxTop, rxBottom)
+      : cardRightConvergeTopless(W, H, rxTop, rxBottom)
+    : isSplit
+      ? cardRightSplit(W, H, rxTop, rxBottom)
+      : cardRightConverge(W, H, rxTop, rxBottom)
 
   useLayoutEffect(() => {
     const el = pathRef.current
@@ -544,7 +693,7 @@ function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, 
       const pt = el.getPointAtLength(l * clampedP)
       setFront({ x: +pt.x.toFixed(2), y: +pt.y.toFixed(2) })
     }
-  }, [W, H, rxTop, rxBottom, variant, clampedP])
+  }, [W, H, rxTop, rxBottom, variant, clampedP, flushTop])
 
   return (
     <svg
@@ -948,8 +1097,10 @@ function OutlinedCard({
   )
 }
 
-function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps) {
+function Peek({ view, notch, hasNotch, onToggleExpand, onPlayPause, onSkip }: IslandProps) {
   const rm = useReducedMotion()
+  // Square the top only when wrapping a real notch; otherwise fully rounded.
+  const wrapNotch = notch && hasNotch
   return (
     <div
       style={{
@@ -957,8 +1108,8 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
         boxSizing: 'border-box',
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
-        borderRadius: notch ? '0 0 22px 22px' : 22,
-        padding: `${notch ? 22 : 16}px 20px 17px`,
+        borderRadius: wrapNotch ? '0 0 22px 22px' : 22,
+        padding: `${wrapNotch ? 22 : 16}px 20px 17px`,
         boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
@@ -1099,9 +1250,11 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 /** Shared body used by both Expanded and ExpandedWithTasks. */
 function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
   const rm = useReducedMotion()
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
+  const { view, notch, hasNotch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
     props
   const br = bottomRadius ?? 26
+  // Square the top only when wrapping a real notch; otherwise fully rounded.
+  const wrapNotch = notch && hasNotch
   return (
     <div
       style={{
@@ -1109,8 +1262,8 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         boxSizing: 'border-box',
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
-        borderRadius: `${notch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
-        padding: `${notch ? 26 : 22}px 24px 20px`,
+        borderRadius: `${wrapNotch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
+        padding: `${wrapNotch ? 26 : 22}px 24px 20px`,
         boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
@@ -1282,7 +1435,7 @@ function ExpandedWithTasks(props: IslandProps) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: props.notch ? '0 0 26px 26px' : 26,
+        borderRadius: props.notch && props.hasNotch ? '0 0 26px 26px' : 26,
         boxShadow: 'none',
         overflow: 'hidden',
       }}

@@ -149,6 +149,10 @@ export interface Placement {
   hasNotch: boolean
   /** Height (px) of the notch band: workArea.y - bounds.y. 0 on non-notch displays. */
   notchHeight: number
+  /** Notch width in logical points, used to size the wrap spacer. 0 on non-notch. */
+  notchWidth: number
+  /** Absolute screen X of the notch center (display-centered on Apple hardware). */
+  notchCenterX: number
 }
 
 export interface IslandSize {

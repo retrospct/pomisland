@@ -16,6 +16,8 @@ export function IslandApp() {
     nearSnap: false,
     hasNotch: false,
     notchHeight: 0,
+    notchWidth: 0,
+    notchCenterX: 0,
   })
   const [expanded, setExpanded] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
@@ -203,6 +205,7 @@ export function IslandApp() {
           notch={placement.snapped}
           hasNotch={placement.hasNotch}
           notchHeight={placement.notchHeight}
+          notchWidth={placement.notchWidth}
           ripple={prefs.ripple}
           messagesOn={prefs.messages}
           tasks={tasks}
