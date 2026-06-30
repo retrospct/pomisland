@@ -113,6 +113,13 @@ export function createIslandWindow(): BrowserWindow {
       preload: PRELOAD,
       contextIsolation: true,
       nodeIntegration: false,
+      // The island is a passive always-on-top widget that is almost never the
+      // focused window. With Chromium's default background throttling, its CSS
+      // keyframe animations (the notch progress treatments — comet/glow/front/
+      // underlight) freeze whenever another app is focused, so progress appears
+      // not to animate at all. Disable throttling so the trace keeps animating
+      // while the user works in other apps.
+      backgroundThrottling: false,
     },
   })
 
