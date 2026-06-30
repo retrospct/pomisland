@@ -219,17 +219,27 @@ export function applyAlwaysOnTop(on: boolean): void {
 export function dragStart(cursorX: number, cursorY: number): void {
   if (!islandWin) return
   const b = islandWin.getBounds()
+  placement.dragging = true
+  placement.snapped = false
+  applyIslandWindowLevel() // floating while dragging
+
+  // The window may be at y=0 (snapped to the notch at 'screen-saver' level).
+  // After dropping to 'floating' level the floating card renders into that same
+  // y=0 position — hidden behind the menu bar. Nudge the window to workArea.y
+  // (the first pixel below the menu bar) immediately, and update the drag origin
+  // so dragMove's position math stays consistent from the new start point.
+  const d = displayAtPoint(cursorX, cursorY)
+  const startY = Math.max(b.y, d.workArea.y)
+  if (startY !== b.y) islandWin.setPosition(b.x, startY)
+
   drag = {
     startCursorX: cursorX,
     startCursorY: cursorY,
     startX: b.x,
-    startY: b.y,
+    startY,
     lastCursorX: cursorX,
     lastCursorY: cursorY,
   }
-  placement.dragging = true
-  placement.snapped = false
-  applyIslandWindowLevel() // floating while dragging
   broadcastPlacement()
 }
 
