@@ -105,7 +105,7 @@ export function deriveIsland(
   const taskColor = hasTask ? n.taskColor : n.taskDim
 
   const dots: DotStyle[] = []
-  const count = prefs.showDots ? sessionTotal : 0
+  const count = prefs.islandPlacement.dots !== 'off' ? sessionTotal : 0
   for (let i = 0; i < count; i++) {
     const done = i < sessionIndex || (i === sessionIndex && isComplete)
     const current = i === sessionIndex && !isComplete
@@ -132,7 +132,7 @@ export function deriveIsland(
     isBreak,
     timerStyle: prefs.timerStyle,
     dots,
-    clusters: deriveClusters(prefs.layout, prefs.islandPlacement, prefs.showDots),
+    clusters: deriveClusters(prefs.islandPlacement),
     completedToday,
     dailyGoal: prefs.dailyGoal,
   }

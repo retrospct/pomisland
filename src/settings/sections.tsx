@@ -1,6 +1,6 @@
 // Settings tab bodies, ported from SettingsPanel.dc.html. Two tabs:
 //   General      → Timer preset / durations / shortcuts+goal + Behavior
-//   Preferences  → Colors / dots / timer style / notch layout + Alarm & sound / Done animation
+//   Preferences  → Colors / timer style / element placement + Alarm & sound / Done animation
 // Every control writes straight through to prefs (optimistic in SettingsApp).
 
 import { ACCENT_HEX, accentHex, hexToRgba, lighten } from '@shared/accent'
@@ -12,7 +12,6 @@ import type {
   AccentKey,
   IslandElement,
   IslandSlot,
-  Layout,
   Prefs,
   Ripple,
   Sound,
@@ -208,68 +207,6 @@ function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () 
       }}
     >
       {label}
-    </button>
-  )
-}
-
-function SelectCard({
-  selected,
-  onClick,
-  icon,
-  label,
-  padTop = 22,
-}: {
-  selected: boolean
-  onClick: () => void
-  icon: ReactNode
-  label: string
-  padTop?: number
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        position: 'relative',
-        flex: 1,
-        border: '1.5px solid var(--sp-border)',
-        background: 'var(--sp-surface)',
-        borderRadius: 12,
-        padding: `${padTop}px 10px 16px`,
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 10,
-        transition: 'all .15s',
-      }}
-    >
-      {selected && (
-        <span
-          style={{
-            position: 'absolute',
-            inset: -1.5,
-            border: '1.5px solid var(--sp-teal)',
-            borderRadius: 12,
-            background: 'var(--sp-tint)',
-            zIndex: 0,
-          }}
-        />
-      )}
-      <span style={{ position: 'relative', zIndex: 1, display: 'grid', placeItems: 'center' }}>
-        {icon}
-      </span>
-      <span
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          fontFamily: SANS,
-          fontSize: 12,
-          fontWeight: 500,
-          color: 'var(--sp-body)',
-        }}
-      >
-        {label}
-      </span>
     </button>
   )
 }
@@ -750,48 +687,15 @@ function NotchStyleCard({
   )
 }
 
-const LAYOUT_OPTIONS: { k: Layout; label: string; icon: ReactNode }[] = [
-  {
-    k: 'split',
-    label: 'Split',
-    icon: (
-      <svg width="42" height="22" viewBox="0 0 42 22" fill="none">
-        <rect x="14" y="0" width="14" height="7" rx="2" fill="var(--sp-border)" opacity="0.5" />
-        <circle cx="5" cy="14" r="3" fill="var(--sp-teal)" />
-        <rect x="28" y="11" width="10" height="4" rx="2" fill="var(--sp-teal)" />
-      </svg>
-    ),
-  },
-  {
-    k: 'minimal',
-    label: 'Minimal',
-    icon: (
-      <svg width="42" height="22" viewBox="0 0 42 22" fill="none">
-        <rect x="14" y="0" width="14" height="7" rx="2" fill="var(--sp-border)" opacity="0.5" />
-        <rect x="6" y="12" width="10" height="4" rx="2" fill="var(--sp-teal)" />
-      </svg>
-    ),
-  },
-  {
-    k: 'compact',
-    label: 'Compact',
-    icon: (
-      <svg width="42" height="22" viewBox="0 0 42 22" fill="none">
-        <rect x="14" y="0" width="14" height="7" rx="2" fill="var(--sp-border)" opacity="0.5" />
-        <circle cx="5" cy="14" r="3" fill="var(--sp-teal)" />
-        <circle cx="35" cy="14" r="3" fill="var(--sp-teal)" />
-      </svg>
-    ),
-  },
-]
-
-// MO-22: per-element placement around the notch. Labels use product vocabulary.
+// Per-element placement around the notch. Labels use product vocabulary.
 const PLACEMENT_ELEMENTS: { k: IslandElement; label: string }[] = [
   { k: 'ring', label: 'Progressive timer' },
-  { k: 'time', label: 'Timer numbers' },
+  { k: 'status', label: 'Focus mode' },
+  { k: 'time', label: 'Timer countdown' },
   { k: 'dots', label: 'Session dots' },
 ]
 const SLOT_OPTIONS: { k: IslandSlot; label: string }[] = [
+  { k: 'off', label: 'Off' },
   { k: 'left', label: 'Left' },
   { k: 'below', label: 'Below' },
   { k: 'right', label: 'Right' },
@@ -827,7 +731,7 @@ export function PreferencesTab({ prefs, set }: TabProps) {
         </div>
       </div>
 
-      {/* Left: colors / dots / layout / placement */}
+      {/* Left: colors / element placement */}
       <div>
         <div style={{ marginBottom: 22 }}>
           <SectionLabel>Colors</SectionLabel>
@@ -916,35 +820,7 @@ export function PreferencesTab({ prefs, set }: TabProps) {
           </div>
         </div>
 
-        <div
-          style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid var(--sp-line)' }}
-        >
-          <ToggleRow
-            title="Show session dots"
-            desc="The little round-progress markers."
-            on={prefs.showDots}
-            onClick={() => set({ showDots: !prefs.showDots })}
-            border={false}
-          />
-        </div>
-
         <div>
-          <SectionLabel>Notch layout</SectionLabel>
-          <div style={{ display: 'flex', gap: 10 }}>
-            {LAYOUT_OPTIONS.map((o) => (
-              <SelectCard
-                key={o.k}
-                selected={prefs.layout === o.k}
-                onClick={() => set({ layout: o.k })}
-                icon={o.icon}
-                label={o.label}
-                padTop={20}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 24 }}>
           <SectionLabel>Element placement</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {PLACEMENT_ELEMENTS.map(({ k, label }) => (

@@ -22,16 +22,15 @@ export type TimerStyle =
   | 'converge'
   | 'split'
   | 'comet'
-export type Layout = 'split' | 'minimal' | 'compact'
 /**
- * Collapsed-island elements whose position around the notch is user-configurable
- * (MO-22). Intentionally open to growth — more elements (e.g. task text) can be
- * added here without changing the placement model.
+ * Collapsed-island elements whose position around the notch is user-configurable.
+ * `status` = the Focus/Break/Paused label; `time` = the MM:SS countdown; `ring` =
+ * the circular progress indicator; `dots` = session progress dots.
  */
-export type IslandElement = 'ring' | 'time' | 'dots'
-/** Where an element sits relative to the camera notch. */
-export type IslandSlot = 'left' | 'below' | 'right'
-/** Per-element position map. Default is all `'right'` (see DEFAULT_PREFS). */
+export type IslandElement = 'ring' | 'status' | 'time' | 'dots'
+/** Where an element sits relative to the camera notch. `off` hides the element. */
+export type IslandSlot = 'off' | 'left' | 'below' | 'right'
+/** Per-element position map. Default: ring off, status/time/dots below. */
 export type IslandPlacement = Record<IslandElement, IslandSlot>
 export type AccentKey = 'teal' | 'clay' | 'blue' | 'violet' | 'rose' | 'green'
 /**
@@ -105,14 +104,11 @@ export interface Prefs {
   theme: ThemeChoice
   /** Notch-native progress treatment (A–H). See TimerStyle + NotchProgress.tsx. */
   timerStyle: TimerStyle
-  layout: Layout
   /**
-   * Where each collapsed-island element sits around the notch (MO-22). `layout`
-   * still controls *visibility* (split = all, minimal = no ring, compact = no
-   * time); this controls *placement* of whatever is visible. Default: all right.
+   * Where each collapsed-island element sits around the notch. Setting a slot to
+   * `'off'` hides that element. Replaces the old `layout` + `showDots` pair.
    */
   islandPlacement: IslandPlacement
-  showDots: boolean
   /** Completion ("done") animation. */
   ripple: Ripple
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----

@@ -69,6 +69,13 @@ export interface NotchProgressProps {
    * which implies simulateNotch.
    */
   simulateNotch?: boolean
+  /**
+   * When false, suppress the bundled label/time/dots readout so only the SVG
+   * progress trace (and optional mock notch) renders. The island passes `false`
+   * so placed clusters handle the readout instead. Defaults to true so Settings
+   * previews keep showing the full readout.
+   */
+  readout?: boolean
   /** Uniform scale for compact previews; keeps layout box correct. */
   scale?: number
 }
@@ -84,6 +91,7 @@ export function NotchProgress({
   textColor = '#F2F1EC',
   frame = false,
   simulateNotch = frame,
+  readout = true,
   scale = 1,
 }: NotchProgressProps) {
   const pathRef = useRef<SVGPathElement>(null)
@@ -99,7 +107,8 @@ export function NotchProgress({
   const isComet = variant === 'comet'
   const isTwoSide = isConverge || isSplit
   const drawFullOutline = variant === 'outline' || isGlow || isFront
-  const showReadout = !isBelow
+  // showReadout: variant-level condition AND the readout prop must both be true.
+  const showReadout = readout && !isBelow
 
   const p = Math.min(1, Math.max(0, Number.isFinite(progress) ? progress : 0))
 
@@ -133,7 +142,8 @@ export function NotchProgress({
   const hasFront = isFront && len > 0
 
   const baseW = 260
-  const baseH = frame ? 128 : isBelow ? 84 : dots && dots.length ? 100 : 86
+  // When readout is suppressed, height only needs to cover the 72px SVG trace zone.
+  const baseH = !readout ? 72 : frame ? 128 : isBelow ? 84 : dots && dots.length ? 100 : 86
 
   const inner = (
     <>
@@ -354,7 +364,7 @@ export function NotchProgress({
         )}
       </svg>
 
-      {isBelow && (
+      {readout && isBelow && (
         <div
           style={{
             position: 'absolute',

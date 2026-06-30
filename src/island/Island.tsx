@@ -152,9 +152,6 @@ function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
   const hasContent = (key: IslandElement) => (key === 'dots' ? view.dots.length > 0 : true)
   const filled = [left, below, right].map((keys) => keys.filter(hasContent))
   const [leftKeys, belowKeys, rightKeys] = filled
-  const pillCount = filled.filter((k) => k.length > 0).length
-  const soloNotch = notch && pillCount <= 1
-
   const renderElement = (key: IslandElement) => {
     switch (key) {
       case 'ring':
@@ -172,44 +169,38 @@ function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
             <RingGlyphSmall glyph={view.glyph} accent={view.accent} />
           </Ring>
         )
-      case 'time':
+      case 'status':
         return (
-          <div
-            key="time"
+          <span
+            key="status"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              lineHeight: 1,
-              flex: '0 0 auto',
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: view.accent,
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              transition: rm ? undefined : 'color 1.5s ease-in-out',
             }}
           >
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: 10,
-                letterSpacing: '0.16em',
-                color: view.accent,
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                transition: rm ? undefined : 'color 1.5s ease-in-out',
-              }}
-            >
-              {view.statusLabel}
-            </span>
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: 15,
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {view.timeStr}
-            </span>
-          </div>
+            {view.statusLabel}
+          </span>
+        )
+      case 'time':
+        return (
+          <span
+            key="time"
+            style={{
+              fontFamily: MONO,
+              fontSize: 15,
+              fontWeight: 500,
+              letterSpacing: '0.01em',
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {view.timeStr}
+          </span>
         )
       case 'dots':
         return <SessionDots key="dots" dots={view.dots} />
@@ -232,9 +223,6 @@ function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
       color: 'var(--il-text)',
       borderRadius: pillRadius,
       padding: `${notch ? 13 : 8}px 20px 9px 10px`,
-      // Preserve the single-pill snapped width; flanking pills size to content.
-      minWidth: soloNotch ? 210 : 0,
-      justifyContent: soloNotch ? 'space-between' : 'flex-start',
       boxShadow: 'none',
       cursor: 'pointer',
       minHeight: 44,
@@ -248,6 +236,20 @@ function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
   }
 
   const fxActive = fxPhase !== 'none'
+
+  // When snapped, the center column holds the notch zone: the progress trace
+  // with a mock notch background (temporary until real-hardware alignment lands),
+  // stacked above the below-cluster pill. Left/right clusters flank it.
+  const notchZone = notch ? (
+    <NotchProgress
+      variant={view.timerStyle}
+      progress={view.frac}
+      accent={view.accent}
+      accentBright={view.accentBright}
+      simulateNotch
+      readout={false}
+    />
+  ) : null
 
   return (
     <div
@@ -282,46 +284,33 @@ function Collapsed({ view, notch, ripple, onToggleExpand }: IslandProps) {
           />
         </div>
       )}
-      {/* Snapped: all eight handoff variants via NotchProgress (real notch shows through).
-          Floating: pill-cluster placement — outline treatments need hardware. */}
-      {notch ? (
-        <div data-island="1" onClick={onToggleExpand} style={{ cursor: 'pointer' }}>
-          <NotchProgress
-            variant={view.timerStyle}
-            progress={view.frac}
-            accent={view.accent}
-            accentBright={view.accentBright}
-            time={view.timeStr}
-            label={view.statusLabel}
-            dots={view.dots}
-            textColor="var(--il-text)"
-          />
-        </div>
-      ) : (
+      {/* Unified cluster grid — placement drives both snapped and floating modes.
+          When snapped, the center column shows the mock notch + progress trace
+          above the below-cluster pill. Left/right clusters flank it. */}
+      <div
+        data-island="1"
+        onClick={onToggleExpand}
+        style={{
+          display: 'inline-grid',
+          gridTemplateColumns: 'auto auto auto',
+          alignItems: 'start',
+          cursor: 'pointer',
+        }}
+      >
+        <div style={{ justifySelf: 'end' }}>{renderPill(leftKeys)}</div>
         <div
-          data-island="1"
-          onClick={onToggleExpand}
           style={{
-            display: 'inline-grid',
-            gridTemplateColumns: 'auto auto auto',
-            alignItems: 'start',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            minWidth: notch ? NOTCH_GAP : (leftKeys.length > 0 && rightKeys.length > 0 ? NOTCH_GAP : 0),
           }}
         >
-          <div style={{ justifySelf: 'end' }}>{renderPill(leftKeys)}</div>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              minWidth: leftKeys.length > 0 && rightKeys.length > 0 ? NOTCH_GAP : 0,
-            }}
-          >
-            {belowKeys.length > 0 && <div aria-hidden style={{ height: BAR_ROW_H }} />}
-            {renderPill(belowKeys)}
-          </div>
-          <div style={{ justifySelf: 'start' }}>{renderPill(rightKeys)}</div>
+          {notch ? notchZone : (belowKeys.length > 0 && <div aria-hidden style={{ height: BAR_ROW_H }} />)}
+          {renderPill(belowKeys)}
         </div>
-      )}
+        <div style={{ justifySelf: 'start' }}>{renderPill(rightKeys)}</div>
+      </div>
     </div>
   )
 }
