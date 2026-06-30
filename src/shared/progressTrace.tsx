@@ -6,7 +6,7 @@
 // .nc-progress-stroke class are globally defined in src/shared/notch.css,
 // which is imported in both island and settings renderers.
 
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import type { TimerStyle } from './types'
 
 const TRACK = 'rgba(242,241,236,0.13)'
@@ -54,14 +54,14 @@ export interface ProgressTraceProps extends ProgressGeometry {
    * the underlight variant. NotchProgress passes the notch bottom-arc; CardOutline
    * omits this (the bottom-edge glow is handled via underlightEllipses instead).
    */
-  underlightArcPath?: React.ReactNode
+  underlightArcPath?: ReactNode
 }
 
 /**
  * Renders the SVG children for the current progress variant. Returns null for
  * 'below' (the Ring element handles progress in that mode).
  */
-export function renderProgressTrace(props: ProgressTraceProps): React.ReactNode {
+export function renderProgressTrace(props: ProgressTraceProps): ReactNode {
   const {
     variant,
     p,

@@ -134,6 +134,17 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
   const [fxPhase, setFxPhase] = useState<'enter' | 'exit' | 'none'>('none')
   const fxActiveRef = useRef(false)
 
+  // Body measurement for snapped CardOutline overlay — must be unconditional (React rules of hooks)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const [bodyDims, setBodyDims] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    if (!notch) return  // only measure in snapped mode
+    const el = bodyRef.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    setBodyDims({ w: Math.round(width), h: Math.round(height) })
+  })
+
   useEffect(() => {
     if (view.isComplete) {
       fxActiveRef.current = true
@@ -281,9 +292,11 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
           </div>
         )}
         <div
+          ref={bodyRef}
           data-island="1"
           onClick={onToggleExpand}
           style={{
+            position: 'relative',
             display: 'inline-grid',
             gridTemplateColumns: 'auto auto auto',
             alignItems: 'center',
@@ -351,6 +364,20 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
           >
             {rightVisible.map(renderElement)}
           </div>
+
+          {/* CardOutline overlay — variant-aware progress trace for non-'below' styles */}
+          {view.timerStyle !== 'below' && bodyDims.w > 0 && (
+            <CardOutline
+              width={bodyDims.w}
+              height={bodyDims.h}
+              rxTop={0}
+              rxBottom={20}
+              variant={view.timerStyle}
+              progress={view.frac}
+              accent={view.accent}
+              accentBright={view.accentBright}
+            />
+          )}
         </div>
       </div>
     )
