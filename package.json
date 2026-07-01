@@ -4,6 +4,7 @@
   "description": "Dynamic Island Pomodoro — a macOS notch-aware focus timer",
   "author": "",
   "license": "MIT",
+  "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=11"

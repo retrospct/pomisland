@@ -34,6 +34,15 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.sha }}
 
+      # Un-draft immediately: this is what actually materializes refs/tags/<tag>.
+      # Doing it here (not by hand) means the tag exists within seconds of the
+      # Release PR merging, before any later push could re-trigger release-please
+      # and hit the same "no tag to diff against" confusion this caused twice.
+      - name: Publish the draft release (materializes the tag)
+        run: gh release edit "${{ needs.release-please.outputs.tag_name }}" --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v6
