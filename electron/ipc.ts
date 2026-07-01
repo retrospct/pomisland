@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { IPC } from '../src/shared/types'
-import type { IslandSize, Prefs, SettingsControl, TaskMutation, TimerAction } from '../src/shared/types'
+import type { IslandResizeSize, Prefs, SettingsControl, TaskMutation, TimerAction } from '../src/shared/types'
 import { getPrefs, onPrefsChange, setPrefs } from './store'
 import { activeTaskTitle, applyMutation, getTasks, onTasksChange, recordFocusComplete } from './taskStore'
 import {
@@ -51,7 +51,7 @@ export function registerIpc(timer: Timer): void {
   timer.onFocusComplete(recordFocusComplete)
 
   // Island window
-  ipcMain.on(IPC.islandResize, (_e, size: IslandSize) => resizeIsland(size))
+  ipcMain.on(IPC.islandResize, (_e, size: IslandResizeSize) => resizeIsland(size))
   ipcMain.handle(IPC.islandGetPlacement, () => getPlacement())
   ipcMain.on(IPC.islandDragStart, (_e, x: number, y: number) => dragStart(x, y))
   ipcMain.on(IPC.islandDragMove, (_e, x: number, y: number) => dragMove(x, y))

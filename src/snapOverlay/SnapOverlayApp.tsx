@@ -13,10 +13,14 @@ import './snapOverlay.css'
  * island appears to emerge from the notch / menu bar when it snaps.
  *
  * Visual states:
- *   dragging (far)  → faint dashed accent outline + "DROP TO SNAP" label
- *   nearSnap        → bright glowing solid outline + outer bloom ring + "RELEASE" label
+ *   dragging (far)  → dashed accent outline + "DROP TO SNAP" label. The dashed
+ *                      outline and label never move or change between states.
+ *   nearSnap        → same dashed outline + same "DROP TO SNAP" label, plus a
+ *                      solid glowing accent ring that animates in just outside
+ *                      the outline (same shape, offset outward).
  *
- * Animations: fade-in + scaleY on drag start; glow pulse while nearSnap.
+ * Animations: fade-in + scaleY on drag start; glow ring scales/fades in on
+ * nearSnap, then pulses while held.
  * See snapOverlay.css. This is a scoped exception to the global animation-deferral
  * policy — see .scratch/animation-tuning/issues/01-tune-all-animations.md.
  */
@@ -27,6 +31,8 @@ export function SnapOverlayApp() {
     nearSnap: false,
     hasNotch: false,
     notchHeight: 0,
+    notchWidth: 0,
+    notchCenterX: 0,
   })
   const [accent, setAccent] = useState<string>('#8FC8C0')
 
@@ -54,9 +60,11 @@ export function SnapOverlayApp() {
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        // Side padding matches OVERLAY_PADDING_X; bottom = OVERLAY_PADDING_Y.
-        // No top padding — ghost starts flush with the screen top edge (y=0).
-        padding: '0 40px 20px',
+        // Side padding exceeds OVERLAY_PADDING_X (extra 30px each side) so the
+        // ghost reads as a compact target instead of spanning the full docked
+        // footprint width — no top padding — ghost is flush with the screen top
+        // edge (y=0). Height gives blur room below.
+        padding: '0 100px 0',
         pointerEvents: 'none',
       }}
     >
@@ -65,6 +73,9 @@ export function SnapOverlayApp() {
   )
 }
 
+// Drop-zone bar height — reads as a compact target rather than a thin strip.
+const DROP_H = 46
+
 function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string }) {
   const h = accent.replace('#', '')
   const r = parseInt(h.substring(0, 2), 16)
@@ -72,73 +83,50 @@ function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string })
   const b = parseInt(h.substring(4, 6), 16)
   const rgba = (a: number) => `rgba(${r},${g},${b},${a})`
 
-  // Notch pill shape: flat top (flush with screen top, border-top: none),
-  // rounded bottom corners only — mirrors the notch / snapped island shape.
+  // Flat top (flush with the screen edge), rounded bottom — mirrors the dock.
+  // This dashed outline is the ONE persistent shape: it stays put and never
+  // swaps to solid — the near-snap glow renders as a separate ring outside it.
   const shape: CSSProperties = {
     flex: '1 1 auto',
-    alignSelf: 'stretch',
-    borderRadius: '0 0 20px 20px',
-    // Top border intentionally omitted: the ghost "emerges from" the screen top.
+    height: DROP_H,
+    borderRadius: '0 0 16px 16px',
+    border: `3px dashed ${accent}`,
     borderTop: 'none',
     position: 'relative',
     pointerEvents: 'none',
     display: 'flex',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 7,
   }
 
   const labelStyle: CSSProperties = {
     fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 8,
-    letterSpacing: '0.13em',
-    fontWeight: 500,
-    color: rgba(nearSnap ? 0.95 : 0.75),
+    fontSize: 12.5,
+    letterSpacing: '0.08em',
+    fontWeight: 700,
+    color: accent,
     userSelect: 'none',
   }
 
-  if (nearSnap) {
-    return (
-      <div
-        className="snap-ghost-near"
-        style={{
-          ...shape,
-          border: `1.5px solid ${rgba(0.9)}`,
-          borderTop: 'none',
-          boxShadow: [
-            `0 0 10px 3px ${rgba(0.5)}`,
-            `0 0 24px 8px ${rgba(0.28)}`,
-            `inset 0 0 8px 2px ${rgba(0.12)}`,
-          ].join(','),
-        }}
-      >
-        {/* Outer bloom ring */}
+  return (
+    <div className="snap-ghost" style={shape}>
+      {nearSnap && (
+        // Solid glowing ring that animates in outside the dashed outline,
+        // tracing the same shape offset outward — never replaces the dashed line.
         <div
+          className="snap-glow-ring"
           style={{
             position: 'absolute',
-            inset: -7,
+            inset: -10,
             top: 0,
-            borderRadius: '0 0 27px 27px',
-            border: `1px solid ${rgba(0.4)}`,
+            borderRadius: '0 0 24px 24px',
+            border: `3px solid ${accent}`,
             borderTop: 'none',
-            boxShadow: `0 0 30px 10px ${rgba(0.18)}`,
+            boxShadow: [`0 0 12px 3px ${rgba(0.5)}`, `0 0 26px 9px ${rgba(0.26)}`, `inset 0 0 9px 2px ${rgba(0.12)}`].join(','),
             pointerEvents: 'none',
           }}
         />
-        <span style={labelStyle}>RELEASE</span>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className="snap-ghost-far"
-      style={{
-        ...shape,
-        border: `1.5px dashed ${rgba(0.45)}`,
-        borderTop: 'none',
-      }}
-    >
+      )}
       <span style={labelStyle}>DROP TO SNAP</span>
     </div>
   )

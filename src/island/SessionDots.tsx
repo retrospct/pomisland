@@ -1,5 +1,8 @@
 // Session progress dots. On hover, morphs into the completed-today count (MO-7).
 // Milestone rings appear at 10 and 20 completions.
+//
+// completedToday/dailyGoal are only ever passed by the expanded card — it's the
+// only view where a hover can land reliably long enough to reveal the tooltip.
 
 import { useState } from 'react'
 import type { DotStyle } from './derive'
@@ -24,7 +27,7 @@ export function SessionDots({ dots, gap = 5, completedToday, dailyGoal }: Sessio
   if (hovered && completedToday !== undefined) {
     const isMilestone = completedToday === 10 || completedToday === 20
     const label =
-      dailyGoal !== undefined ? `${completedToday}/${dailyGoal}` : String(completedToday)
+      dailyGoal !== undefined ? `${completedToday}/${dailyGoal} goal` : String(completedToday)
     return (
       <div
         style={{

@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../src/shared/types'
 import type {
-  IslandSize,
+  IslandResizeSize,
   Placement,
   Prefs,
   PomApi,
@@ -36,7 +36,7 @@ const api: PomApi = {
     onChange: (cb) => on<TasksState>(IPC.tasksChanged, cb),
   },
   island: {
-    resize: (size: IslandSize) => ipcRenderer.send(IPC.islandResize, size),
+    resize: (size: IslandResizeSize) => ipcRenderer.send(IPC.islandResize, size),
     onPlacement: (cb) => on<Placement>(IPC.islandPlacement, cb),
     getPlacement: () => ipcRenderer.invoke(IPC.islandGetPlacement) as Promise<Placement>,
     dragStart: (x: number, y: number) => ipcRenderer.send(IPC.islandDragStart, x, y),

@@ -24,9 +24,6 @@ body.island-body {
 .island-menu-item:hover {
   background: var(--il-hover) !important;
 }
-.island-menu-item--danger:hover {
-  background: rgba(226, 162, 74, 0.12) !important;
-}
 
 .island-pill {
   transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -57,6 +54,38 @@ body.island-body {
     transform: none;
   }
   .island-icon-btn {
+    transition: none;
+  }
+}
+
+/* Active-task label in the expanded view. It opens the task list on click, so a
+   hover cue (underline + slight brighten) signals it's interactive. */
+.il-task-open {
+  text-decoration-color: transparent;
+  transition: filter 0.15s ease, text-decoration-color 0.15s ease;
+}
+.il-task-open:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  filter: brightness(1.28);
+}
+
+/* Completed/planned session count for the active task — hidden until hover so it
+   doesn't compete with the task name at rest. */
+.il-task-progress-hint {
+  font-size: 11px;
+  color: var(--il-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.il-task-open:hover .il-task-progress-hint {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .il-task-open,
+  .il-task-progress-hint {
     transition: none;
   }
 }

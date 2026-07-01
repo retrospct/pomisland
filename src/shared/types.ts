@@ -36,6 +36,20 @@ export type AccentKey = 'teal' | 'clay' | 'blue' | 'violet' | 'rose' | 'green'
 /** Floating-card layout variant when the island is not snapped to the notch. */
 export type FloatingLayout = 'L1' | 'L2' | 'L3' | 'L4'
 /**
+ * How tall the snapped island's notch band is.
+ * `realNotch` = a standard MacBook notch height (and the measured notch on a
+ * notched display); `menubar` = the current display's menu-bar height (default,
+ * ~30px external / ~38px built-in); `custom` = the `notchHeightCustom` value.
+ */
+export type NotchHeightMode = 'realNotch' | 'menubar' | 'custom'
+/**
+ * Snapped-island surface color. `black` = pure black (`#000`), matching the
+ * physical notch/Dynamic Island bezel regardless of theme; `theme` = the
+ * normal light/dark surface color. Only affects the snapped presentation —
+ * the floating card always follows the theme.
+ */
+export type NotchBackgroundMode = 'black' | 'theme'
+/**
  * Completion alarm voices — synthesized in the renderer via Web Audio (see
  * src/shared/sound.ts and ADR-0005). `chime/bell/marimba/digital` are the clean
  * built-ins; `halcyon/spice/pocket/koto` are the cinematic/pocket-synth set;
@@ -106,6 +120,8 @@ export interface Prefs {
   // ---- Preferences · Appearance ----
   accent: AccentKey
   theme: ThemeChoice
+  /** Snapped-island surface color: pure black vs the theme's surface color. See NotchBackgroundMode. */
+  notchBackground: NotchBackgroundMode
   /** Notch-native progress treatment (A–H). See TimerStyle + NotchProgress.tsx. */
   timerStyle: TimerStyle
   /**
@@ -117,6 +133,10 @@ export interface Prefs {
   ripple: Ripple
   /** Floating card layout when the island is dragged off the notch. */
   floatingLayout: FloatingLayout
+  /** How the snapped island's notch-band height is chosen. See NotchHeightMode. */
+  notchHeightMode: NotchHeightMode
+  /** Notch band height (px) used when notchHeightMode is 'custom'. */
+  notchHeightCustom: number
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----
   alwaysTop: boolean
   magnetic: boolean
@@ -149,11 +169,25 @@ export interface Placement {
   hasNotch: boolean
   /** Height (px) of the notch band: workArea.y - bounds.y. 0 on non-notch displays. */
   notchHeight: number
+  /** Notch width in logical points, used to size the wrap spacer. 0 on non-notch. */
+  notchWidth: number
+  /** Absolute screen X of the notch center (display-centered on Apple hardware). */
+  notchCenterX: number
 }
 
 export interface IslandSize {
   width: number
   height: number
+}
+
+/**
+ * Resize payload sent on every ResizeObserver firing, including from non-collapsed
+ * presentations (peek/expanded/tasks). `collapsed` discriminates the true docked-pill
+ * footprint from those larger transient views, so the main process only updates the
+ * snap drop-zone's remembered size (`dockedSize`) when it reflects the actual dock shape.
+ */
+export interface IslandResizeSize extends IslandSize {
+  collapsed: boolean
 }
 
 // ---- Task model (MO-6) ----
@@ -208,7 +242,7 @@ export interface PomApi {
     onChange(cb: (s: TasksState) => void): () => void
   }
   island: {
-    resize(size: IslandSize): void
+    resize(size: IslandResizeSize): void
     onPlacement(cb: (p: Placement) => void): () => void
     getPlacement(): Promise<Placement>
     dragStart(cursorX: number, cursorY: number): void

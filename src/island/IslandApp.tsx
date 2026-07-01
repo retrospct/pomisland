@@ -1,9 +1,10 @@
+import { resolveNotchHeight } from '@shared/notchHeight'
 import { playSound, playTick } from '@shared/sound'
 import type { Placement, Prefs, TasksState, TimerState } from '@shared/types'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { deriveIsland } from './derive'
 import { Island, type Present } from './Island'
-import { islandPaletteVars, resolveTheme } from './palette'
+import { islandPaletteVars, notchBackgroundColor, resolveTheme } from './palette'
 import { useDrag } from './useDrag'
 
 export function IslandApp() {
@@ -16,6 +17,8 @@ export function IslandApp() {
     nearSnap: false,
     hasNotch: false,
     notchHeight: 0,
+    notchWidth: 0,
+    notchCenterX: 0,
   })
   const [expanded, setExpanded] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
@@ -23,6 +26,9 @@ export function IslandApp() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   const measureRef = useRef<HTMLDivElement>(null)
+  // Ref so the resize observer's report() closure (registered once) always sees
+  // the latest presentation without re-subscribing.
+  const presentRef = useRef<Present>('collapsed')
   const prevStatus = useRef<string | null>(null)
   const prefsRef = useRef<Prefs | null>(null)
   const retractTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -99,7 +105,11 @@ export function IslandApp() {
     let raf = 0
     const report = () => {
       const r = el.getBoundingClientRect()
-      window.api.island.resize({ width: r.width, height: r.height })
+      window.api.island.resize({
+        width: r.width,
+        height: r.height,
+        collapsed: presentRef.current === 'collapsed',
+      })
     }
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf)
@@ -151,11 +161,30 @@ export function IslandApp() {
   const view =
     state && prefs ? deriveIsland(state, prefs, resolvedTheme, tasks?.completedToday ?? 0) : null
 
+  // Notch band height honoring the user's setting — see resolveNotchHeight for
+  // the mode → height mapping (shared with the settings custom-height stepper).
+  const effectiveNotchHeight = !prefs
+    ? placement.notchHeight
+    : resolveNotchHeight({
+        mode: prefs.notchHeightMode,
+        menubarHeight: placement.notchHeight,
+        hasNotch: placement.hasNotch,
+        custom: prefs.notchHeightCustom,
+      })
+
+  // Snapped-island surface color: pure black (Dynamic Island look, default) or
+  // the theme's normal surface — only applied to the snapped presentation.
+  const notchBg = prefs ? notchBackgroundColor(prefs.theme, prefs.notchBackground) : '#000000'
+
   // Determine presentation
   let present: Present = 'collapsed'
   if (tasksOpen && expanded) present = 'tasks'
   else if (expanded) present = 'expanded'
   else if (peek && !placement.dragging) present = 'peek'
+  // Kept in sync with `present` on every render so the resize-report closure
+  // (registered once in the ResizeObserver effect above) always reads the
+  // latest presentation instead of the value from mount.
+  presentRef.current = present
 
   const toggleExpand = () => {
     if (justDragged.current) return
@@ -202,7 +231,9 @@ export function IslandApp() {
           view={view}
           notch={placement.snapped}
           hasNotch={placement.hasNotch}
-          notchHeight={placement.notchHeight}
+          notchHeight={effectiveNotchHeight}
+          notchWidth={placement.notchWidth}
+          notchBg={notchBg}
           ripple={prefs.ripple}
           messagesOn={prefs.messages}
           tasks={tasks}

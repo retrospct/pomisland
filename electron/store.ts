@@ -32,12 +32,18 @@ export const DEFAULT_PREFS: Prefs = {
   // Preferences · Appearance
   accent: 'teal',
   theme: 'dark',
+  // Pure black by default so the snapped island reads as the physical notch bezel,
+  // matching the real Dynamic Island, regardless of the theme.
+  notchBackground: 'black',
   // Notch-outline bar — the headline notch-native treatment from the design handoff.
   timerStyle: 'outline',
-  // Default: Focus label, countdown, and session dots below the notch; ring hidden.
-  islandPlacement: { ring: 'off', status: 'below', time: 'below', dots: 'below' },
+  // Default: Focus label below the notch; timer flanks left, session dots flank right; ring hidden.
+  islandPlacement: { ring: 'off', status: 'below', time: 'left', dots: 'right' },
   ripple: 'burst',
   floatingLayout: 'L1',
+  // Notch band height: match the menu bar by default.
+  notchHeightMode: 'menubar',
+  notchHeightCustom: 38,
   // Window behavior (not surfaced in SettingsPanel)
   alwaysTop: true,
   magnetic: true,

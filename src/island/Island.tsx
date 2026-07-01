@@ -42,6 +42,12 @@ interface IslandProps extends Handlers {
   hasNotch: boolean
   /** Height (px) of the notch band: workArea.y - bounds.y. */
   notchHeight: number
+  /** Notch width (px) used to size the wrap spacer; 0 on non-notch displays. */
+  notchWidth: number
+  /** Snapped-island surface color (resolved from Prefs.notchBackground). Applied
+   *  as a local `--il-bg` override on the Island root when `notch` is true, so
+   *  every descendant that reads var(--il-bg) picks it up automatically. */
+  notchBg: string
   ripple: Ripple
   messagesOn: boolean
   tasks: TasksState | null
@@ -83,7 +89,22 @@ export function Island(props: IslandProps) {
   const showMenu = (props.present === 'expanded' || props.present === 'tasks') && props.menuOpen
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+    <div
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        // Room for the inverse-rounded ears, which flare beyond the card's sides
+        // when snapped — plus a few px clearance so the ear (and its trace) isn't
+        // clipped flush at the window edge. Symmetric, so the card stays centered.
+        paddingLeft: props.notch ? EAR_SIZE + 8 : undefined,
+        paddingRight: props.notch ? EAR_SIZE + 8 : undefined,
+        // Override --il-bg for the whole snapped subtree (menu popover, task
+        // list, ears — everything reads var(--il-bg)) so Prefs.notchBackground
+        // controls the notch's surface color without touching every consumer.
+        // Not applied while floating: the floating card always follows the theme.
+        ...(props.notch ? { ['--il-bg' as string]: props.notchBg } : {}),
+      }}
+    >
       {panel}
       {showMenu && (
         <>
@@ -120,6 +141,12 @@ export function Island(props: IslandProps) {
 // each edge. 180 gives that full extent plus a comfortable margin for any accent glow.
 const FX_PAD = 180
 
+// Always-on transparent bleed (px) beside + below the snapped body so the running
+// progress trace's blur halo (glow ~3.5px, comet, the front dot r7+blur, and the
+// underlight ellipses' blur(10) at the bottom) isn't clipped by the tight window
+// bounds. Smaller than FX_PAD since the trace halo is far smaller than a ripple.
+const TRACE_BLEED = 22
+
 // MO-20: completion fx tracks enter/exit phase to animate in and out.
 // MO-30: outer wrapper grows by FX_PAD when FX fires so the window is large enough to
 //        show the full ring expansion without clipping.
@@ -128,7 +155,59 @@ const FX_PAD = 180
 // Approximate MacBook notch width; calibrate against real hardware later.
 const NOTCH_GAP = 200
 
-function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand }: IslandProps) {
+/**
+ * Extra buffer (px) added on top of the estimated notch width when reserving
+ * the flanking spacer. `notchWidth` comes from EstimateNotchProvider's
+ * display-width fraction (see electron/notch.ts), not a per-model hardware
+ * measurement, so it can run a bit narrow on some MacBook models — without
+ * this margin, flanking content (e.g. combined status + time text) can
+ * overflow into the real notch's footprint and get visually clipped by the
+ * physical camera housing.
+ */
+const NOTCH_WIDTH_SAFETY = 28
+
+// Size (px) of the inverse-rounded "ears" at the top corners of a snapped card.
+// Also the horizontal bleed the window needs so the ears aren't clipped.
+const EAR_SIZE = 13
+
+/**
+ * Dynamic-island / notch top corners. When a card is snapped flush against the
+ * screen's top edge, its top-left and top-right corners flare slightly *wider*
+ * than the body and curve back in with a concave (inverse) fillet — the SuperIsland
+ * shape, where the body looks like it grows out of the top bezel.
+ *
+ * Implemented as two absolutely-positioned boxes filled with the card background;
+ * a radial-gradient carves a concave quarter-circle out of each box's inner-bottom,
+ * leaving solid fill along the top edge (the wide flare) and the inner side (the
+ * join to the body). The parent must be position:relative, and the window needs
+ * EAR_SIZE of horizontal bleed (added on the Island wrapper when snapped) so the
+ * ears render instead of being clipped.
+ */
+function NotchEars() {
+  const base: CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    width: EAR_SIZE,
+    height: EAR_SIZE,
+    pointerEvents: 'none',
+  }
+  // transparent inside the radius, card bg outside → concave corner.
+  const fill = `transparent ${EAR_SIZE - 0.6}px, var(--il-bg) ${EAR_SIZE}px`
+  return (
+    <>
+      <div
+        aria-hidden
+        style={{ ...base, left: -EAR_SIZE, background: `radial-gradient(circle at 0 100%, ${fill})` }}
+      />
+      <div
+        aria-hidden
+        style={{ ...base, right: -EAR_SIZE, background: `radial-gradient(circle at 100% 100%, ${fill})` }}
+      />
+    </>
+  )
+}
+
+function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onToggleExpand }: IslandProps) {
   const rm = useReducedMotion()
 
   const [fxPhase, setFxPhase] = useState<'enter' | 'exit' | 'none'>('none')
@@ -145,6 +224,7 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
     const w = Math.round(width), h = Math.round(height)
     setBodyDims(prev => (prev.w === w && prev.h === h) ? prev : { w, h })
   })
+
 
   useEffect(() => {
     if (view.isComplete) {
@@ -251,25 +331,39 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
   }
 
   const fxActive = fxPhase !== 'none'
-  const fxBorderRadius: CSSProperties['borderRadius'] = notch ? '0 0 20px 20px' : 999
+  // Both snapped bodies square the top so they hang flush from the screen's top
+  // edge — the real-notch wrap meets the camera housing, the non-notch dock
+  // mimics a notch. Only the floating (un-snapped) card is fully rounded.
+  const wrapNotch = notch && hasNotch
+  const fxBorderRadius: CSSProperties['borderRadius'] = notch
+    ? wrapNotch
+      ? '0 0 20px 20px'
+      : '0 0 22px 22px'
+    : 999
 
   if (notch) {
-    // ── Snapped unified body: hangs from the real notch (Fix 8) ──────────────
-    // One dark body div with squared top corners (meets the physical notch) and
-    // rounded bottom. Left/right elements are bare (no pill), below content sits
-    // flush under the notch spacer. No mock notch drawn — real hardware shows through.
     const belowVisible = belowKeys.filter(hasContent)
     const leftVisible = leftKeys.filter(hasContent)
     const rightVisible = rightKeys.filter(hasContent)
+
+    // Effective notch width — provider estimate (+ safety buffer, since the
+    // estimate isn't pixel-exact per model), falling back to the legacy
+    // constant if metrics haven't arrived yet.
+    const spacerW = (notchWidth > 0 ? notchWidth : NOTCH_GAP) + NOTCH_WIDTH_SAFETY
+
+    // Transparent bleed beside + below the body (never above — the top stays
+    // flush at y=0) so the progress trace's blur/comet/front-dot halo isn't
+    // clipped by the tight window bounds. Completion FX uses the larger FX_PAD.
+    const traceBleed = view.timerStyle !== 'below' ? TRACE_BLEED : 0
 
     return (
       <div
         style={{
           position: 'relative',
           display: 'inline-flex',
-          paddingLeft: fxActive ? FX_PAD : undefined,
-          paddingRight: fxActive ? FX_PAD : undefined,
-          paddingBottom: fxActive ? FX_PAD : undefined,
+          paddingLeft: fxActive ? FX_PAD : traceBleed,
+          paddingRight: fxActive ? FX_PAD : traceBleed,
+          paddingBottom: fxActive ? FX_PAD : traceBleed,
         }}
       >
         {fxActive && (
@@ -292,109 +386,157 @@ function Collapsed({ view, notch, hasNotch, notchHeight, ripple, onToggleExpand 
             />
           </div>
         )}
-        <div
-          ref={bodyRef}
-          data-island="1"
-          onClick={onToggleExpand}
-          style={{
-            position: 'relative',
-            display: 'inline-grid',
-            gridTemplateColumns: 'auto auto auto',
-            alignItems: 'center',
-            background: 'var(--il-bg)',
-            color: 'var(--il-text)',
-            borderRadius: '0 0 20px 20px',
-            cursor: 'pointer',
-          }}
-        >
-          {/* Left column — bare elements flanking the notch */}
+        {hasNotch ? (
+          // ── Snapped unified body: wraps the real notch (Fix 8) ───────────────
+          // One dark body div with squared top corners (meets the physical notch)
+          // and rounded bottom. Left/right elements flank the notch; below content
+          // sits flush under the notch spacer (sized to the real notch width). No
+          // mock notch drawn — real hardware shows through the transparent center.
           <div
+            ref={bodyRef}
+            data-island="1"
+            onClick={onToggleExpand}
             style={{
-              alignSelf: 'center',
-              padding: '0 10px 0 14px',
-              display: 'flex',
+              position: 'relative',
+              display: 'inline-grid',
+              gridTemplateColumns: 'auto auto auto',
               alignItems: 'center',
-              gap: 13,
+              background: 'var(--il-bg)',
+              color: 'var(--il-text)',
+              borderRadius: '0 0 20px 20px',
+              cursor: 'pointer',
             }}
           >
-            {leftVisible.map(renderElement)}
-          </div>
+            <NotchEars />
+            {/* Left column — bare elements flanking the notch */}
+            <div
+              style={{
+                alignSelf: 'center',
+                padding: '0 10px 0 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 13,
+              }}
+            >
+              {leftVisible.map(renderElement)}
+            </div>
 
-          {/* Center column — transparent notch spacer + below content */}
-          <div
-            style={{
-              minWidth: NOTCH_GAP,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            {hasNotch && (
-              <div
-                aria-hidden
-                style={{ height: notchHeight, minWidth: NOTCH_GAP, flexShrink: 0 }}
+            {/* Center column — transparent notch spacer + below content */}
+            <div
+              style={{
+                minWidth: spacerW,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <div aria-hidden style={{ height: notchHeight, minWidth: spacerW, flexShrink: 0 }} />
+              {belowVisible.length > 0 && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 13,
+                    padding: '8px 20px 12px',
+                  }}
+                >
+                  {belowVisible.map(renderElement)}
+                </div>
+              )}
+            </div>
+
+            {/* Right column — bare elements flanking the notch */}
+            <div
+              style={{
+                alignSelf: 'center',
+                padding: '0 14px 0 10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 13,
+              }}
+            >
+              {rightVisible.map(renderElement)}
+            </div>
+
+            {/* CardOutline overlay — variant-aware progress trace for non-'below' styles.
+                flushTop: the squared top meets the notch, so the trace skips the top edge. */}
+            {view.timerStyle !== 'below' && bodyDims.w > 0 && (
+              <CardOutline
+                width={bodyDims.w}
+                height={bodyDims.h}
+                rxTop={0}
+                rxBottom={20}
+                variant={view.timerStyle}
+                progress={view.frac}
+                accent={view.accent}
+                accentBright={view.accentBright}
+                flushTop
               />
             )}
-            {belowVisible.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 13,
-                  padding: '8px 20px 12px',
-                }}
-              >
-                {belowVisible.map(renderElement)}
-              </div>
-            )}
-            {belowVisible.length === 0 && !hasNotch && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
-                {renderElement('status')}
-                {renderElement('time')}
-              </div>
-            )}
           </div>
-
-          {/* Right column — bare elements flanking the notch */}
+        ) : (
+          // ── Snapped on a non-notch display: faux-notch dock ─────────────────
+          // No physical notch, so mimic one: a single-row body with a flat top
+          // (squared corners) flush against the screen's top edge and a rounded
+          // bottom, hung from y=0 by the main process. All elements sit in one row.
           <div
+            ref={bodyRef}
+            data-island="1"
+            onClick={onToggleExpand}
             style={{
-              alignSelf: 'center',
-              padding: '0 14px 0 10px',
-              display: 'flex',
+              position: 'relative',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 13,
+              gap: 14,
+              background: 'var(--il-bg)',
+              color: 'var(--il-text)',
+              // Wider + shorter to sit closer to the menu-bar / notch proportions.
+              // Height follows the user's notch-height setting (min 30 so the
+              // countdown always fits).
+              borderRadius: '0 0 16px 16px',
+              padding: '4px 28px 5px',
+              cursor: 'pointer',
+              minHeight: Math.max(30, notchHeight),
+              boxSizing: 'border-box',
             }}
           >
-            {rightVisible.map(renderElement)}
+            <NotchEars />
+            {[...leftVisible, ...belowVisible, ...rightVisible].map(renderElement)}
+            {/* flushTop: the dock's squared top is flush with the screen edge,
+                so the trace skips the top edge (same rule as the real notch). */}
+            {view.timerStyle !== 'below' && bodyDims.w > 0 && (
+              <CardOutline
+                width={bodyDims.w}
+                height={bodyDims.h}
+                rxTop={0}
+                rxBottom={16}
+                variant={view.timerStyle}
+                progress={view.frac}
+                accent={view.accent}
+                accentBright={view.accentBright}
+                flushTop
+              />
+            )}
           </div>
-
-          {/* CardOutline overlay — variant-aware progress trace for non-'below' styles */}
-          {view.timerStyle !== 'below' && bodyDims.w > 0 && (
-            <CardOutline
-              width={bodyDims.w}
-              height={bodyDims.h}
-              rxTop={0}
-              rxBottom={20}
-              variant={view.timerStyle}
-              progress={view.frac}
-              accent={view.accent}
-              accentBright={view.accentBright}
-            />
-          )}
-        </div>
+        )}
       </div>
     )
   }
 
   // ── Floating mode: FloatingCard (Fix 6) ──────────────────────────────────
+  // A floating card is rounded on all sides, so its progress-trace glow bleeds
+  // outward in every direction. Reserve transparent bleed on all four sides (when
+  // the trace is active) so the window grows to fit it instead of clipping it.
+  const floatBleed = view.timerStyle !== 'below' ? TRACE_BLEED : 0
   return (
     <div
       style={{
         position: 'relative',
         display: 'inline-flex',
-        paddingLeft: fxActive ? FX_PAD : undefined,
-        paddingRight: fxActive ? FX_PAD : undefined,
-        paddingBottom: fxActive ? FX_PAD : undefined,
+        paddingTop: fxActive ? undefined : floatBleed,
+        paddingLeft: fxActive ? FX_PAD : floatBleed,
+        paddingRight: fxActive ? FX_PAD : floatBleed,
+        paddingBottom: fxActive ? FX_PAD : floatBleed,
       }}
     >
       {fxActive && (
@@ -505,6 +647,78 @@ function cardRightSplit(W: number, H: number, rxT: number, rxB: number): string 
   ].join(' ')
 }
 
+// ── Topless variants ────────────────────────────────────────────────────────
+// When the body is snapped flush against the screen's top edge, the flat top edge
+// sits against the bezel/notch surface and must NOT carry the progress trace. The
+// stroke instead runs up each side and follows the inverse-rounded ear out to its
+// tip at the top corner (matching NotchEars), so the trace hugs the actual card
+// outline. E is the ear size; the ear tips sit at x=-E and x=W+E (SVG overflow is
+// visible, so drawing outside [0,W] is fine).
+const E = EAR_SIZE
+
+/** Open perimeter minus the top edge: left ear tip → left → bottom → right → right ear tip. */
+function cardPathTopless(W: number, H: number, rxB: number): string {
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${-E} 0`,
+    `Q 0 0 0 ${E}`,
+    `L 0 ${H - rB}`,
+    `Q 0 ${H} ${rB} ${H}`,
+    `L ${W - rB} ${H}`,
+    `Q ${W} ${H} ${W} ${H - rB}`,
+    `L ${W} ${E}`,
+    `Q ${W} 0 ${W + E} 0`,
+  ].join(' ')
+}
+
+/** Left converge, topless: left ear tip → left → bottom-center. */
+function cardLeftConvergeTopless(W: number, H: number, rxB: number): string {
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${-E} 0`,
+    `Q 0 0 0 ${E}`,
+    `L 0 ${H - rB}`,
+    `Q 0 ${H} ${rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Right converge, topless: right ear tip → right → bottom-center. */
+function cardRightConvergeTopless(W: number, H: number, rxB: number): string {
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W + E} 0`,
+    `Q ${W} 0 ${W} ${E}`,
+    `L ${W} ${H - rB}`,
+    `Q ${W} ${H} ${W - rB} ${H}`,
+    `L ${W / 2} ${H}`,
+  ].join(' ')
+}
+
+/** Left split, topless: bottom-center → left → left ear tip. */
+function cardLeftSplitTopless(W: number, H: number, rxB: number): string {
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${rB} ${H}`,
+    `Q 0 ${H} 0 ${H - rB}`,
+    `L 0 ${E}`,
+    `Q 0 0 ${-E} 0`,
+  ].join(' ')
+}
+
+/** Right split, topless: bottom-center → right → right ear tip. */
+function cardRightSplitTopless(W: number, H: number, rxB: number): string {
+  const rB = Math.min(rxB, W / 2, H / 2)
+  return [
+    `M ${W / 2} ${H}`,
+    `L ${W - rB} ${H}`,
+    `Q ${W} ${H} ${W} ${H - rB}`,
+    `L ${W} ${E}`,
+    `Q ${W} 0 ${W + E} 0`,
+  ].join(' ')
+}
+
 interface CardOutlineProps {
   width: number
   height: number
@@ -516,9 +730,15 @@ interface CardOutlineProps {
   progress: number
   accent: string
   accentBright: string
+  /**
+   * When true the body's top edge is flush against the screen's top edge (snapped
+   * notch-wrap / dock), so the trace omits that edge and starts/ends at the top
+   * corners. Floating cards (free on all sides) leave this false for a full loop.
+   */
+  flushTop?: boolean
 }
 
-function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, accent, accentBright }: CardOutlineProps) {
+function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, accent, accentBright, flushTop = false }: CardOutlineProps) {
   const pathRef = useRef<SVGPathElement>(null)
   const [len, setLen] = useState(cachedCardLen)
   const [front, setFront] = useState({ x: W / 2, y: 0 })
@@ -526,13 +746,23 @@ function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, 
   const clampedP = Math.min(1, Math.max(0, progress))
   const isSplit = variant === 'split'
 
-  const fullPath = cardPath(W, H, rxTop, rxBottom)
-  const leftPath = isSplit
-    ? cardLeftSplit(W, H, rxTop, rxBottom)
-    : cardLeftConverge(W, H, rxTop, rxBottom)
-  const rightPath = isSplit
-    ? cardRightSplit(W, H, rxTop, rxBottom)
-    : cardRightConverge(W, H, rxTop, rxBottom)
+  const fullPath = flushTop
+    ? cardPathTopless(W, H, rxBottom)
+    : cardPath(W, H, rxTop, rxBottom)
+  const leftPath = flushTop
+    ? isSplit
+      ? cardLeftSplitTopless(W, H, rxBottom)
+      : cardLeftConvergeTopless(W, H, rxBottom)
+    : isSplit
+      ? cardLeftSplit(W, H, rxTop, rxBottom)
+      : cardLeftConverge(W, H, rxTop, rxBottom)
+  const rightPath = flushTop
+    ? isSplit
+      ? cardRightSplitTopless(W, H, rxBottom)
+      : cardRightConvergeTopless(W, H, rxBottom)
+    : isSplit
+      ? cardRightSplit(W, H, rxTop, rxBottom)
+      : cardRightConverge(W, H, rxTop, rxBottom)
 
   useLayoutEffect(() => {
     const el = pathRef.current
@@ -544,7 +774,7 @@ function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, 
       const pt = el.getPointAtLength(l * clampedP)
       setFront({ x: +pt.x.toFixed(2), y: +pt.y.toFixed(2) })
     }
-  }, [W, H, rxTop, rxBottom, variant, clampedP])
+  }, [W, H, rxTop, rxBottom, variant, clampedP, flushTop])
 
   return (
     <svg
@@ -577,6 +807,15 @@ function CardOutline({ width: W, height: H, rxTop, rxBottom, variant, progress, 
   )
 }
 
+// deps
+const TRACE_INSET = 3
+interface CardGeom {
+  fullPath: string
+  leftPath: string
+  rightPath: string
+  meetPoint: { x: number; y: number }
+}
+
 // ── TimerPet — animated SVG character for Layout 3 (Fix 6) ──────────────────
 function TimerPet({
   isRunning,
@@ -591,7 +830,7 @@ function TimerPet({
 }) {
   const expression = isComplete ? 'complete' : isBreak ? 'break' : isRunning ? 'running' : 'paused'
   return (
-    <svg width={32} height={32} viewBox="0 0 32 32">
+    <svg width={48} height={48} viewBox="0 0 32 32">
       <style>{`
         @keyframes petBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-2px)} }
         @keyframes petIdle   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1px)} }
@@ -663,11 +902,11 @@ function L3Card({
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
         borderRadius: rx,
-        padding: '10px 16px 10px 12px',
+        padding: '7px 14px 7px 10px',
         cursor: 'pointer',
       }}
     >
@@ -702,7 +941,147 @@ function L3Card({
   )
 }
 
-// ── FloatingCard — floating island layouts L1–L4 (Fix 6) ────────────────────
+// ── Circle geometry + outline for L4 ────────────────────────────────────────
+let cachedCircleLen = 0
+
+function circleGeometry(cx: number, cy: number, R: number, variant: TimerStyle): CardGeom {
+  const isSplit = variant === 'split'
+  // Full CCW circle (sweep=0 = CCW on screen): top → left → bottom → right → top
+  const fullPath = `M ${cx} ${cy - R} A ${R} ${R} 0 0 0 ${cx} ${cy + R} A ${R} ${R} 0 0 0 ${cx} ${cy - R} Z`
+  // converge: both halves start at top, meet at bottom
+  const leftConverge  = `M ${cx} ${cy - R} A ${R} ${R} 0 0 0 ${cx} ${cy + R}` // CCW → left side
+  const rightConverge = `M ${cx} ${cy - R} A ${R} ${R} 0 0 1 ${cx} ${cy + R}` // CW  → right side
+  // split: reversed (start at bottom, fill outward)
+  const leftSplit  = `M ${cx} ${cy + R} A ${R} ${R} 0 0 0 ${cx} ${cy - R}` // CCW from bottom → left → top
+  const rightSplit = `M ${cx} ${cy + R} A ${R} ${R} 0 0 1 ${cx} ${cy - R}` // CW  from bottom → right → top
+  return {
+    fullPath,
+    leftPath:  isSplit ? leftSplit  : leftConverge,
+    rightPath: isSplit ? rightSplit : rightConverge,
+    meetPoint: { x: cx, y: cy + R },
+  }
+}
+
+function CircleOutline({ size, variant, progress, accent, accentBright }: {
+  size: number
+  variant: TimerStyle
+  progress: number
+  accent: string
+  accentBright: string
+}) {
+  const pathRef = useRef<SVGPathElement>(null)
+  const cx = size / 2, cy = size / 2
+  const R = size / 2 - TRACE_INSET
+  const [len, setLen] = useState(cachedCircleLen)
+  const clampedP = Math.min(1, Math.max(0, progress))
+  const [front, setFront] = useState({ x: cx, y: cy - R })
+
+  const { fullPath, leftPath, rightPath, meetPoint } = circleGeometry(cx, cy, R, variant)
+
+  useLayoutEffect(() => {
+    const el = pathRef.current
+    if (!el) return
+    const l = el.getTotalLength()
+    cachedCircleLen = l
+    setLen(l)
+    if (variant === 'front' && l > 0) {
+      const pt = el.getPointAtLength(l * clampedP)
+      setFront({ x: +pt.x.toFixed(2), y: +pt.y.toFixed(2) })
+    }
+  }, [size, variant, clampedP])
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+    >
+      {renderProgressTrace({
+        variant,
+        p: clampedP,
+        accent,
+        accentBright,
+        fullPath,
+        leftPath,
+        rightPath,
+        meetPoint,
+        len,
+        front,
+        pathRef,
+        underlightEllipses:
+          variant === 'underlight'
+            ? [
+                { cx: meetPoint.x, cy: meetPoint.y, rx: R * 0.65, ry: R * 0.4, fill: accent, delay: undefined },
+                { cx: meetPoint.x, cy: meetPoint.y, rx: R * 0.45, ry: R * 0.28, fill: accentBright, opacity: 0.55, delay: '0.25s' },
+              ]
+            : undefined,
+      })}
+    </svg>
+  )
+}
+
+function CircleCard({ view, onToggleExpand }: { view: IslandView; onToggleExpand: () => void }) {
+  const sz = 116
+  const isRing = view.timerStyle === 'below'
+  const R = sz / 2 - TRACE_INSET
+  const circ = 2 * Math.PI * R
+  const off = (circ * (1 - Math.min(1, view.frac))).toFixed(2)
+  return (
+    <div
+      data-island="1"
+      onClick={onToggleExpand}
+      style={{
+        position: 'relative',
+        width: sz,
+        height: sz,
+        borderRadius: '50%',
+        background: 'var(--il-bg)',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        color: 'var(--il-text)',
+      }}
+    >
+      {isRing ? (
+        <svg
+          width={sz}
+          height={sz}
+          viewBox={`0 0 ${sz} ${sz}`}
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transform: 'rotate(-90deg)' }}
+        >
+          <circle cx={sz / 2} cy={sz / 2} r={R} fill="none" stroke="var(--il-track)" strokeWidth={2.5} />
+          <circle
+            cx={sz / 2} cy={sz / 2} r={R}
+            fill="none" stroke={view.accent} strokeWidth={2.5} strokeLinecap="round"
+            strokeDasharray={circ.toFixed(2)} strokeDashoffset={off}
+            className="nc-progress-stroke"
+          />
+        </svg>
+      ) : (
+        <CircleOutline
+          size={sz}
+          variant={view.timerStyle}
+          progress={view.frac}
+          accent={view.accent}
+          accentBright={view.accentBright}
+        />
+      )}
+      <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: view.accent, fontWeight: 500 }}>
+        {view.statusLabel}
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 500, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>
+        {view.timeStr}
+      </span>
+      {view.dots.length > 0 && <SessionDots dots={view.dots} />}
+    </div>
+  )
+}
+
+// ── FloatingCard — floating island layouts L1–L4 ─────────────────────────────
 function FloatingCard({
   view,
   onToggleExpand,
@@ -718,75 +1097,7 @@ function FloatingCard({
   const isRing = view.timerStyle === 'below'
   const { left, below, right } = view.clusters
 
-  if (layout === 'L4') {
-    // Badge: near-square card. Ring border when isRing, CardOutline otherwise.
-    const sz = 100
-    const rx4 = 24
-    const ringR = 44
-    const ringCirc = 2 * Math.PI * ringR
-    const ringOffset = (ringCirc * (1 - Math.min(1, view.frac))).toFixed(2)
-    return (
-      <div
-        data-island="1"
-        onClick={onToggleExpand}
-        style={{
-          position: 'relative',
-          width: sz,
-          height: sz,
-          background: 'var(--il-bg)',
-          borderRadius: rx4,
-          cursor: 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          color: 'var(--il-text)',
-        }}
-      >
-        {isRing ? (
-          <svg
-            width={sz}
-            height={sz}
-            viewBox={`0 0 ${sz} ${sz}`}
-            style={{ position: 'absolute', inset: 0, pointerEvents: 'none', transform: 'rotate(-90deg)' }}
-          >
-            <circle cx={50} cy={50} r={ringR} fill="none" stroke="var(--il-track)" strokeWidth={3} />
-            <circle
-              cx={50}
-              cy={50}
-              r={ringR}
-              fill="none"
-              stroke={view.accent}
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeDasharray={ringCirc.toFixed(2)}
-              strokeDashoffset={ringOffset}
-              className="nc-progress-stroke"
-            />
-          </svg>
-        ) : (
-          <CardOutline
-            width={sz}
-            height={sz}
-            rxTop={rx4}
-            rxBottom={rx4}
-            variant={view.timerStyle}
-            progress={view.frac}
-            accent={view.accent}
-            accentBright={view.accentBright}
-          />
-        )}
-        <span style={{ fontFamily: MONO, fontSize: 9, letterSpacing: '0.14em', color: view.accent, fontWeight: 500 }}>
-          {view.statusLabel}
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: 28, fontWeight: 500, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>
-          {view.timeStr}
-        </span>
-        {view.dots.length > 0 && <SessionDots dots={view.dots} />}
-      </div>
-    )
-  }
+  if (layout === 'L4') return <CircleCard view={view} onToggleExpand={onToggleExpand} />
 
   if (layout === 'L3') {
     // Companion: pet | focus+timer stacked | dots.
@@ -812,7 +1123,7 @@ function FloatingCard({
   // L2 adds the task name as a second row
   const showTask = layout === 'L2'
 
-  const cardPad = { paddingTop: 8, paddingBottom: showTask ? 10 : 9, paddingLeft: 10, paddingRight: 20 }
+  const cardPad = { paddingTop: 12, paddingBottom: 12, paddingLeft: 16, paddingRight: 16 }
   const cardH = showTask ? undefined : 44
 
   if (isRing) {
@@ -848,7 +1159,7 @@ function FloatingCard({
             {allKeys.map(renderElement)}
           </div>
           {showTask && (
-            <span style={{ fontFamily: MONO, fontSize: 11.5, color: view.accent, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: view.taskColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
               {view.displayTask}
             </span>
           )}
@@ -911,7 +1222,7 @@ function OutlinedCard({
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 13,
+        gap: showTask ? 3 : 12,
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
         borderRadius: rx,
@@ -920,15 +1231,13 @@ function OutlinedCard({
         cursor: 'pointer',
         boxSizing: 'border-box',
         flexDirection: showTask ? 'column' : 'row',
-        minWidth: 210,
-        justifyContent: 'space-between',
       }}
     >
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 13 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
         {allKeys.map(renderElement)}
       </div>
       {showTask && (
-        <span style={{ fontFamily: MONO, fontSize: 11.5, color: view.accent, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11.5, color: view.taskColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
           {view.displayTask}
         </span>
       )}
@@ -948,17 +1257,24 @@ function OutlinedCard({
   )
 }
 
-function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps) {
+function Peek({ view, notch, hasNotch, notchHeight, notchWidth, onToggleExpand, onPlayPause, onSkip }: IslandProps) {
   const rm = useReducedMotion()
+  // Snapped → flat top flush with the screen edge + inverse-rounded ears (notch
+  // shape); floating → fully rounded card. On a real-notch display, widen and
+  // clear the physical notch height/width — same fix as ExpandedBody — so the
+  // status/dots row doesn't render under the opaque camera housing.
+  const wrapNotch = notch && hasNotch
+  const topPad = notch ? (wrapNotch ? Math.max(30, notchHeight + 16) : 22) : 16
+  const width = wrapNotch ? Math.max(340, notchWidth + 170) : 272
   return (
     <div
       style={{
-        width: 272,
+        width,
         boxSizing: 'border-box',
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
         borderRadius: notch ? '0 0 22px 22px' : 22,
-        padding: `${notch ? 22 : 16}px 20px 17px`,
+        padding: `${topPad}px 20px 17px`,
         boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
@@ -966,6 +1282,7 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
       }}
       onClick={onToggleExpand}
     >
+      {notch && <NotchEars />}
       <div
         style={{
           display: 'flex',
@@ -1099,18 +1416,34 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 /** Shared body used by both Expanded and ExpandedWithTasks. */
 function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
   const rm = useReducedMotion()
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
+  const { view, notch, hasNotch, notchHeight, notchWidth, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
     props
   const br = bottomRadius ?? 26
+  // The task list's active task (for the completed/planned session hint below) —
+  // distinct from view.displayTask, which is the free-text timer label and isn't
+  // always backed by a task-list entry.
+  const activeTask = props.tasks?.tasks.find((t) => t.id === props.tasks?.activeTaskId) ?? null
+  // Snapped → flat top flush with the screen edge + inverse-rounded ears (notch
+  // shape); floating → fully rounded card.
+  const wrapNotch = notch && hasNotch
+  // Top padding must clear the real notch height (not the flat 26px docked
+  // default) plus a real buffer, or the status/dots row renders partly under
+  // the physical camera housing — the notch is opaque hardware, not a CSS layer,
+  // so anything drawn inside its bounds is simply gone regardless of DOM order.
+  const topPad = notch ? (wrapNotch ? Math.max(30, notchHeight + 16) : 26) : 22
+  // Widen using the real measured notch width (falling back to a sane default
+  // if metrics haven't arrived yet) so the status label / session dots flanking
+  // it keep clear of its horizontal footprint too, not just its height.
+  const cardWidth = wrapNotch ? Math.max(340, notchWidth + 160) : 320
   return (
     <div
       style={{
-        width: 320,
+        width: cardWidth,
         boxSizing: 'border-box',
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
         borderRadius: `${notch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
-        padding: `${notch ? 26 : 22}px 24px 20px`,
+        padding: `${topPad}px 24px 20px`,
         boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
@@ -1118,6 +1451,7 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
       }}
       onClick={onToggleExpand}
     >
+      {notch && <NotchEars />}
       <div
         style={{
           display: 'flex',
@@ -1147,8 +1481,10 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         />
       </div>
 
-      {/* Task text — clicking opens the task list (non-drag hotspot per MO-6) */}
+      {/* Task text — clicking opens the task list (non-drag hotspot per MO-6).
+          Hover underlines + brightens it to signal it's clickable. */}
       <div
+        className="il-task-open"
         role="button"
         tabIndex={0}
         aria-label="Open task list"
@@ -1161,6 +1497,7 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
             props.onOpenTasks(e as unknown as React.MouseEvent)
         }}
         style={{
+          display: 'inline-block',
           fontSize: 13.5,
           color: view.taskColor,
           fontStyle: 'normal',
@@ -1171,6 +1508,12 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
         }}
       >
         {view.displayTask}
+        {activeTask && (
+          <span className="il-task-progress-hint">
+            {' '}
+            &middot; {activeTask.completedPomodoros}/{activeTask.estimatePomodoros} sessions
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 20 }}>

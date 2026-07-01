@@ -325,7 +325,6 @@ export function NotchProgress({
         background: '#1E211C',
         borderRadius: '16px 16px 9px 9px',
         overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
       }
     : { position: 'relative', width: baseW, height: baseH }
 
