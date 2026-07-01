@@ -56,9 +56,10 @@ export function SnapOverlayApp() {
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        // Side padding matches OVERLAY_PADDING_X; bottom = OVERLAY_PADDING_Y.
-        // No top padding — ghost starts flush with the screen top edge (y=0).
-        padding: '0 40px 20px',
+        // Sides inset less than OVERLAY_PADDING_X so the ghost is wider than the
+        // dock; the difference (~ per side) stays as blur room. No top padding —
+        // ghost is flush with the screen top edge (y=0). Height gives blur room below.
+        padding: '0 50px 0',
         pointerEvents: 'none',
       }}
     >
@@ -67,6 +68,12 @@ export function SnapOverlayApp() {
   )
 }
 
+// Dark ink used for the line + text by default; switches to the theme accent on
+// near-snap ("hovering" the drop zone).
+const DROP_DARK = 'rgba(24,26,31,0.92)'
+// Drop-zone bar height — shorter + wider than the dock so it reads as a target.
+const DROP_H = 34
+
 function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string }) {
   const h = accent.replace('#', '')
   const r = parseInt(h.substring(0, 2), 16)
@@ -74,28 +81,29 @@ function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string })
   const b = parseInt(h.substring(4, 6), 16)
   const rgba = (a: number) => `rgba(${r},${g},${b},${a})`
 
-  // Notch pill shape: flat top (flush with screen top, border-top: none),
-  // rounded bottom corners only — mirrors the notch / snapped island shape.
+  const ink = nearSnap ? accent : DROP_DARK
+
+  // Flat top (flush with the screen edge), rounded bottom — mirrors the dock.
   const shape: CSSProperties = {
     flex: '1 1 auto',
-    alignSelf: 'stretch',
-    borderRadius: '0 0 20px 20px',
-    // Top border intentionally omitted: the ghost "emerges from" the screen top.
+    height: DROP_H,
+    borderRadius: '0 0 16px 16px',
     borderTop: 'none',
     position: 'relative',
     pointerEvents: 'none',
     display: 'flex',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 7,
   }
 
   const labelStyle: CSSProperties = {
     fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 8,
-    letterSpacing: '0.13em',
-    fontWeight: 500,
-    color: rgba(nearSnap ? 0.95 : 0.75),
+    fontSize: 12.5,
+    letterSpacing: '0.08em',
+    fontWeight: 700,
+    color: ink,
+    // Light halo keeps the dark text legible over any wallpaper.
+    textShadow: nearSnap ? 'none' : '0 1px 2px rgba(255,255,255,0.5)',
     userSelect: 'none',
   }
 
@@ -105,25 +113,21 @@ function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string })
         className="snap-ghost-near"
         style={{
           ...shape,
-          border: `1.5px solid ${rgba(0.9)}`,
+          border: `3px solid ${accent}`,
           borderTop: 'none',
-          boxShadow: [
-            `0 0 10px 3px ${rgba(0.5)}`,
-            `0 0 24px 8px ${rgba(0.28)}`,
-            `inset 0 0 8px 2px ${rgba(0.12)}`,
-          ].join(','),
+          boxShadow: [`0 0 12px 3px ${rgba(0.5)}`, `0 0 26px 9px ${rgba(0.26)}`, `inset 0 0 9px 2px ${rgba(0.12)}`].join(','),
         }}
       >
-        {/* Outer bloom ring */}
+        {/* Outer bloom ring — wider gap from the border so they don't crowd */}
         <div
           style={{
             position: 'absolute',
-            inset: -7,
+            inset: -16,
             top: 0,
-            borderRadius: '0 0 27px 27px',
-            border: `1px solid ${rgba(0.4)}`,
+            borderRadius: '0 0 30px 30px',
+            border: `1px solid ${rgba(0.38)}`,
             borderTop: 'none',
-            boxShadow: `0 0 30px 10px ${rgba(0.18)}`,
+            boxShadow: `0 0 30px 10px ${rgba(0.16)}`,
             pointerEvents: 'none',
           }}
         />
@@ -133,14 +137,7 @@ function NotchGhost({ nearSnap, accent }: { nearSnap: boolean; accent: string })
   }
 
   return (
-    <div
-      className="snap-ghost-far"
-      style={{
-        ...shape,
-        border: `1.5px dashed ${rgba(0.45)}`,
-        borderTop: 'none',
-      }}
-    >
+    <div className="snap-ghost-far" style={{ ...shape, border: `3px dashed ${DROP_DARK}`, borderTop: 'none' }}>
       <span style={labelStyle}>DROP TO SNAP</span>
     </div>
   )

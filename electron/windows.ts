@@ -325,9 +325,12 @@ export function dragEnd(): void {
 // Snap-zone overlay window (MO-8)
 // ---------------------------------------------------------------------------
 
-/** Extra pixels around the island footprint for the glow/outline to breathe. */
-const OVERLAY_PADDING_X = 40
-const OVERLAY_PADDING_Y = 20
+/** Extra pixels around the island footprint for the glow/outline to breathe.
+ * Generous so the near-snap bloom + a drop zone wider than the dock aren't clipped
+ * (the SnapOverlayApp insets the ghost less than this, leaving the difference as
+ * blur room). */
+const OVERLAY_PADDING_X = 70
+const OVERLAY_PADDING_Y = 52
 
 export function createSnapOverlayWindow(): BrowserWindow {
   if (snapOverlayWin) return snapOverlayWin
