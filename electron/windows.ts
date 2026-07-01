@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import type { Display } from 'electron'
 import { join } from 'node:path'
-import type { IslandSize, Placement } from '../src/shared/types'
+import type { IslandResizeSize, IslandSize, Placement } from '../src/shared/types'
 import { IPC } from '../src/shared/types'
 import { getNotchMetrics } from './notch'
 import { getPrefs } from './store'
@@ -169,16 +169,20 @@ export function toggleIslandVisibility(): void {
 }
 
 /** Resize the island window to fit content, keeping its anchor (top-center if snapped). */
-export function resizeIsland(size: IslandSize): void {
+export function resizeIsland(size: IslandResizeSize): void {
   if (!islandWin) return
   const width = Math.max(40, Math.ceil(size.width))
   const height = Math.max(28, Math.ceil(size.height))
   islandSize = { width, height }
 
   if (placement.snapped) {
-    // Remember the docked footprint so the snap drop-zone stays consistent across
-    // floating layouts (it reflects the landing shape, not the current float card).
-    dockedSize = { width, height }
+    if (size.collapsed) {
+      // Remember the docked footprint so the snap drop-zone stays consistent across
+      // floating layouts (it reflects the landing shape, not the current float card).
+      // Only the collapsed pill's resize reflects that shape — peek/expanded/tasks
+      // resizes while snapped must not overwrite it with a larger transient size.
+      dockedSize = { width, height }
+    }
     const b = islandWin.getBounds()
     const d = displayAtPoint(b.x + b.width / 2, b.y + b.height / 2)
     const tl = snappedTopLeft(width, d)

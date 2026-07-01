@@ -180,6 +180,16 @@ export interface IslandSize {
   height: number
 }
 
+/**
+ * Resize payload sent on every ResizeObserver firing, including from non-collapsed
+ * presentations (peek/expanded/tasks). `collapsed` discriminates the true docked-pill
+ * footprint from those larger transient views, so the main process only updates the
+ * snap drop-zone's remembered size (`dockedSize`) when it reflects the actual dock shape.
+ */
+export interface IslandResizeSize extends IslandSize {
+  collapsed: boolean
+}
+
 // ---- Task model (MO-6) ----
 
 export interface Task {
@@ -232,7 +242,7 @@ export interface PomApi {
     onChange(cb: (s: TasksState) => void): () => void
   }
   island: {
-    resize(size: IslandSize): void
+    resize(size: IslandResizeSize): void
     onPlacement(cb: (p: Placement) => void): () => void
     getPlacement(): Promise<Placement>
     dragStart(cursorX: number, cursorY: number): void

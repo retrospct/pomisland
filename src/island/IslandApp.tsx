@@ -26,6 +26,9 @@ export function IslandApp() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   const measureRef = useRef<HTMLDivElement>(null)
+  // Ref so the resize observer's report() closure (registered once) always sees
+  // the latest presentation without re-subscribing.
+  const presentRef = useRef<Present>('collapsed')
   const prevStatus = useRef<string | null>(null)
   const prefsRef = useRef<Prefs | null>(null)
   const retractTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -102,7 +105,11 @@ export function IslandApp() {
     let raf = 0
     const report = () => {
       const r = el.getBoundingClientRect()
-      window.api.island.resize({ width: r.width, height: r.height })
+      window.api.island.resize({
+        width: r.width,
+        height: r.height,
+        collapsed: presentRef.current === 'collapsed',
+      })
     }
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf)
@@ -174,6 +181,10 @@ export function IslandApp() {
   if (tasksOpen && expanded) present = 'tasks'
   else if (expanded) present = 'expanded'
   else if (peek && !placement.dragging) present = 'peek'
+  // Kept in sync with `present` on every render so the resize-report closure
+  // (registered once in the ResizeObserver effect above) always reads the
+  // latest presentation instead of the value from mount.
+  presentRef.current = present
 
   const toggleExpand = () => {
     if (justDragged.current) return
