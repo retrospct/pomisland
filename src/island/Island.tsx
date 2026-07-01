@@ -469,10 +469,12 @@ function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onT
               background: 'var(--il-bg)',
               color: 'var(--il-text)',
               // Wider + shorter to sit closer to the menu-bar / notch proportions.
+              // Height follows the user's notch-height setting (min 30 so the
+              // countdown always fits).
               borderRadius: '0 0 16px 16px',
-              padding: '5px 28px 6px',
+              padding: '4px 28px 5px',
               cursor: 'pointer',
-              minHeight: 32,
+              minHeight: Math.max(30, notchHeight),
               boxSizing: 'border-box',
             }}
           >

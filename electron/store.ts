@@ -38,6 +38,9 @@ export const DEFAULT_PREFS: Prefs = {
   islandPlacement: { ring: 'off', status: 'below', time: 'below', dots: 'below' },
   ripple: 'burst',
   floatingLayout: 'L1',
+  // Notch band height: match the menu bar by default.
+  notchHeightMode: 'menubar',
+  notchHeightCustom: 38,
   // Window behavior (not surfaced in SettingsPanel)
   alwaysTop: true,
   magnetic: true,

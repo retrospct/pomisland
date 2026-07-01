@@ -153,6 +153,20 @@ export function IslandApp() {
   const view =
     state && prefs ? deriveIsland(state, prefs, resolvedTheme, tasks?.completedToday ?? 0) : null
 
+  // Notch band height honoring the user's setting: 'menubar' uses the measured
+  // menu-bar band; 'realNotch' uses the measured notch on a notched display or a
+  // standard ~38px elsewhere; 'custom' uses the configured value.
+  const REAL_NOTCH_STD = 38
+  const effectiveNotchHeight = !prefs
+    ? placement.notchHeight
+    : prefs.notchHeightMode === 'custom'
+      ? prefs.notchHeightCustom
+      : prefs.notchHeightMode === 'realNotch'
+        ? placement.hasNotch
+          ? placement.notchHeight
+          : REAL_NOTCH_STD
+        : placement.notchHeight
+
   // Determine presentation
   let present: Present = 'collapsed'
   if (tasksOpen && expanded) present = 'tasks'
@@ -204,7 +218,7 @@ export function IslandApp() {
           view={view}
           notch={placement.snapped}
           hasNotch={placement.hasNotch}
-          notchHeight={placement.notchHeight}
+          notchHeight={effectiveNotchHeight}
           notchWidth={placement.notchWidth}
           ripple={prefs.ripple}
           messagesOn={prefs.messages}

@@ -36,6 +36,13 @@ export type AccentKey = 'teal' | 'clay' | 'blue' | 'violet' | 'rose' | 'green'
 /** Floating-card layout variant when the island is not snapped to the notch. */
 export type FloatingLayout = 'L1' | 'L2' | 'L3' | 'L4'
 /**
+ * How tall the snapped island's notch band is.
+ * `realNotch` = a standard MacBook notch height (and the measured notch on a
+ * notched display); `menubar` = the current display's menu-bar height (default,
+ * ~30px external / ~38px built-in); `custom` = the `notchHeightCustom` value.
+ */
+export type NotchHeightMode = 'realNotch' | 'menubar' | 'custom'
+/**
  * Completion alarm voices — synthesized in the renderer via Web Audio (see
  * src/shared/sound.ts and ADR-0005). `chime/bell/marimba/digital` are the clean
  * built-ins; `halcyon/spice/pocket/koto` are the cinematic/pocket-synth set;
@@ -117,6 +124,10 @@ export interface Prefs {
   ripple: Ripple
   /** Floating card layout when the island is dragged off the notch. */
   floatingLayout: FloatingLayout
+  /** How the snapped island's notch-band height is chosen. See NotchHeightMode. */
+  notchHeightMode: NotchHeightMode
+  /** Notch band height (px) used when notchHeightMode is 'custom'. */
+  notchHeightCustom: number
   // ---- Window behavior (not in SettingsPanel UI; read by main) ----
   alwaysTop: boolean
   magnetic: boolean

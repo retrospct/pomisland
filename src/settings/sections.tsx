@@ -919,6 +919,60 @@ export function PreferencesTab({ prefs, set }: TabProps) {
           </div>
         </div>
 
+        <div style={{ marginTop: 22 }}>
+          <SectionLabel>Notch height</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--sp-body)' }}>Docked height</span>
+              <div style={{ display: 'flex', gap: 3, background: 'var(--sp-field)', border: '1px solid var(--sp-border)', borderRadius: 11, padding: 3 }}>
+                {(
+                  [
+                    { k: 'menubar', label: 'Menu bar' },
+                    { k: 'realNotch', label: 'Real notch' },
+                    { k: 'custom', label: 'Custom' },
+                  ] as const
+                ).map((m) => {
+                  const on = prefs.notchHeightMode === m.k
+                  return (
+                    <button
+                      key={m.k}
+                      onClick={() => set({ notchHeightMode: m.k })}
+                      style={{
+                        height: 30, minWidth: 34, padding: '0 12px', border: 'none', cursor: 'pointer',
+                        borderRadius: 8, background: on ? 'var(--sp-seg-on-bg)' : 'transparent',
+                        color: on ? 'var(--sp-seg-on-text)' : 'var(--sp-faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {prefs.notchHeightMode === 'custom' && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                <div>
+                  <div style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--sp-body)' }}>Custom height</div>
+                  <div style={{ fontFamily: SANS, fontSize: 11.5, color: 'var(--sp-faint)', marginTop: 2 }}>
+                    Snapped island band height in pixels
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: '0 0 auto' }}>
+                  <StepButton onClick={() => set({ notchHeightCustom: Math.max(20, prefs.notchHeightCustom - 2) })}>
+                    &minus;
+                  </StepButton>
+                  <span style={{ fontFamily: MONO, fontSize: 13, color: 'var(--sp-teal)', minWidth: 44, textAlign: 'center' }}>
+                    {prefs.notchHeightCustom}px
+                  </span>
+                  <StepButton onClick={() => set({ notchHeightCustom: Math.min(80, prefs.notchHeightCustom + 2) })}>
+                    +
+                  </StepButton>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div style={{ marginTop: 24 }}>
           <SectionLabel>Auto-retract</SectionLabel>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
