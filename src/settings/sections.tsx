@@ -723,9 +723,10 @@ const TICK_OPTIONS: { k: TickSound; label: string }[] = [
   { k: 'crisp', label: TICK_LABELS.crisp },
 ]
 
-// Demo values for the live notch-style previews (a representative mid-session).
+// Demo progress fraction for the live notch-style previews (a representative
+// mid-session point). No time/label/dots readout — the swatch shows only the
+// animated trace so it stays small and reads as a style sample, not a mock clock.
 const STYLE_PREVIEW_PROGRESS = 0.62
-const STYLE_PREVIEW_TIME = '17:24'
 
 /** One selectable notch-style card with a live, scaled NotchProgress preview. */
 function NotchStyleCard({
@@ -765,10 +766,9 @@ function NotchStyleCard({
         progress={STYLE_PREVIEW_PROGRESS}
         accent={accent}
         accentBright={accentBright}
-        time={STYLE_PREVIEW_TIME}
-        label="FOCUS"
+        readout={false}
         frame
-        scale={0.56}
+        scale={0.32}
       />
       <div style={{ textAlign: 'center' }}>
         <div
@@ -836,7 +836,7 @@ export function PreferencesTab({ prefs, set }: TabProps) {
             />
           ))}
         </div>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--sp-caption)', lineHeight: 1.4 }}>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--sp-faint)', lineHeight: 1.4 }}>
           Controls progress animation in both the snapped notch body and floating card.
         </p>
       </div>

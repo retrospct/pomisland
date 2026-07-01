@@ -285,14 +285,7 @@ function Collapsed({ view, notch, hasNotch, notchHeight, notchWidth, ripple, onT
           </span>
         )
       case 'dots':
-        return (
-          <SessionDots
-            key="dots"
-            dots={view.dots}
-            completedToday={view.completedToday}
-            dailyGoal={view.dailyGoal}
-          />
-        )
+        return <SessionDots key="dots" dots={view.dots} />
       default: {
         const _exhaustive: never = key
         return _exhaustive
@@ -918,9 +911,7 @@ function L3Card({
           {view.timeStr}
         </span>
       </div>
-      {view.dots.length > 0 && (
-        <SessionDots dots={view.dots} completedToday={view.completedToday} dailyGoal={view.dailyGoal} />
-      )}
+      {view.dots.length > 0 && <SessionDots dots={view.dots} />}
       {!isRing && dims.w > 0 && (
         <CardOutline
           width={dims.w}
@@ -1072,9 +1063,7 @@ function CircleCard({ view, onToggleExpand }: { view: IslandView; onToggleExpand
       <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 500, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em' }}>
         {view.timeStr}
       </span>
-      {view.dots.length > 0 && (
-        <SessionDots dots={view.dots} completedToday={view.completedToday} dailyGoal={view.dailyGoal} />
-      )}
+      {view.dots.length > 0 && <SessionDots dots={view.dots} />}
     </div>
   )
 }
@@ -1297,7 +1286,7 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
         >
           {view.statusLabel}
         </span>
-        <SessionDots dots={view.dots} completedToday={view.completedToday} dailyGoal={view.dailyGoal} />
+        <SessionDots dots={view.dots} />
       </div>
       <div
         style={{
@@ -1409,7 +1398,7 @@ function Peek({ view, notch, onToggleExpand, onPlayPause, onSkip }: IslandProps)
 /** Shared body used by both Expanded and ExpandedWithTasks. */
 function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
   const rm = useReducedMotion()
-  const { view, notch, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
+  const { view, notch, hasNotch, notchHeight, notchWidth, messagesOn, onToggleExpand, onPlayPause, onReset, onSkip, bottomRadius } =
     props
   const br = bottomRadius ?? 26
   // The task list's active task (for the completed/planned session hint below) —
@@ -1418,15 +1407,25 @@ function ExpandedBody(props: IslandProps & { bottomRadius?: string | number }) {
   const activeTask = props.tasks?.tasks.find((t) => t.id === props.tasks?.activeTaskId) ?? null
   // Snapped → flat top flush with the screen edge + inverse-rounded ears (notch
   // shape); floating → fully rounded card.
+  const wrapNotch = notch && hasNotch
+  // Top padding must clear the real notch height (not the flat 26px docked
+  // default) plus a real buffer, or the status/dots row renders partly under
+  // the physical camera housing — the notch is opaque hardware, not a CSS layer,
+  // so anything drawn inside its bounds is simply gone regardless of DOM order.
+  const topPad = notch ? (wrapNotch ? Math.max(30, notchHeight + 16) : 26) : 22
+  // Widen using the real measured notch width (falling back to a sane default
+  // if metrics haven't arrived yet) so the status label / session dots flanking
+  // it keep clear of its horizontal footprint too, not just its height.
+  const cardWidth = wrapNotch ? Math.max(340, notchWidth + 160) : 320
   return (
     <div
       style={{
-        width: 320,
+        width: cardWidth,
         boxSizing: 'border-box',
         background: 'var(--il-bg)',
         color: 'var(--il-text)',
         borderRadius: `${notch ? '0 0' : '26px 26px'} ${br}px ${br}px`,
-        padding: `${notch ? 26 : 22}px 24px 20px`,
+        padding: `${topPad}px 24px 20px`,
         boxShadow: 'none',
         fontFamily: SANS,
         position: 'relative',
